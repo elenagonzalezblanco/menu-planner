@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Agente Menú Semanal"
+version = "1.0.0"
+id = "artifacts/menu-semanal"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19344
+
+[services.development]
+run = "pnpm --filter @workspace/menu-semanal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/menu-semanal", "run", "build" ]
+publicDir = "artifacts/menu-semanal/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19344"
+BASE_PATH = "/"

@@ -1,0 +1,21 @@
+packages:
+  "framer-motion": "Smooth page transitions and staggered list animations"
+  "react-hook-form": "Form state management"
+  "@hookform/resolvers": "Zod validation resolver for forms"
+  "zod": "Schema validation"
+  "date-fns": "Date formatting for weekly menus"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility function to efficiently merge Tailwind CSS classes"
+
+images:
+  - path: "artifacts/menu-semanal/public/images/kitchen-hero.png"
+    description: "Abstract warm Mediterranean kitchen illustration, terracotta and olive green tones, minimal flat vector style, soft lighting"
+    aspect_ratio: "16:9"
+  - path: "artifacts/menu-semanal/public/images/empty-plate.png"
+    description: "A beautiful empty ceramic plate on a rustic wooden table with a sprig of olive, overhead shot, warm sunlight"
+    aspect_ratio: "1:1"
+
+notes:
+  - Using generated hooks from @workspace/api-client-react
+  - Wrapping generated hooks to handle react-query cache invalidations locally
+  - ui components assumed to be present in src/components/ui/ based on directory structure provided

@@ -1,0 +1,428 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: API para el agente de menú semanal
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: recipes
+    description: Gestión de recetas
+  - name: menus
+    description: Generación de menú semanal
+  - name: shopping
+    description: Lista de la compra
+  - name: mercadona
+    description: Integración con Mercadona
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /recipes:
+    get:
+      operationId: listRecipes
+      tags: [recipes]
+      summary: Listar todas las recetas
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista de recetas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recipe"
+    post:
+      operationId: createRecipe
+      tags: [recipes]
+      summary: Crear una nueva receta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRecipeInput"
+      responses:
+        "201":
+          description: Receta creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+
+  /recipes/{id}:
+    get:
+      operationId: getRecipe
+      tags: [recipes]
+      summary: Obtener una receta por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Receta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "404":
+          description: No encontrada
+    put:
+      operationId: updateRecipe
+      tags: [recipes]
+      summary: Actualizar una receta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRecipeInput"
+      responses:
+        "200":
+          description: Receta actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+    delete:
+      operationId: deleteRecipe
+      tags: [recipes]
+      summary: Eliminar una receta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Eliminada
+
+  /menus/generate:
+    post:
+      operationId: generateMenu
+      tags: [menus]
+      summary: Generar menú semanal con IA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateMenuInput"
+      responses:
+        "200":
+          description: Menú generado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyMenu"
+
+  /menus:
+    get:
+      operationId: listMenus
+      tags: [menus]
+      summary: Listar menús guardados
+      responses:
+        "200":
+          description: Lista de menús
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeeklyMenu"
+
+  /menus/{id}:
+    get:
+      operationId: getMenu
+      tags: [menus]
+      summary: Obtener un menú por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Menú
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyMenu"
+
+  /shopping-list/generate:
+    post:
+      operationId: generateShoppingList
+      tags: [shopping]
+      summary: Generar lista de la compra desde un menú
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateShoppingListInput"
+      responses:
+        "200":
+          description: Lista generada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShoppingList"
+
+  /shopping-list/{menuId}:
+    get:
+      operationId: getShoppingList
+      tags: [shopping]
+      summary: Obtener lista de la compra para un menú
+      parameters:
+        - name: menuId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lista de la compra
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShoppingList"
+
+  /mercadona/search:
+    post:
+      operationId: searchMercadona
+      tags: [mercadona]
+      summary: Buscar ingredientes en Mercadona
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MercadonaSearchInput"
+      responses:
+        "200":
+          description: Resultados de búsqueda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MercadonaSearchResult"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Recipe:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [primero, segundo, otro]
+        ingredients:
+          type: array
+          items:
+            type: string
+        instructions:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - category
+        - ingredients
+
+    CreateRecipeInput:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [primero, segundo, otro]
+        ingredients:
+          type: array
+          items:
+            type: string
+        instructions:
+          type: string
+      required:
+        - name
+        - category
+        - ingredients
+
+    GenerateMenuInput:
+      type: object
+      properties:
+        preferences:
+          type: string
+          description: Preferencias o restricciones opcionales
+        excludeRecipes:
+          type: array
+          items:
+            type: integer
+          description: IDs de recetas a excluir
+        daysCount:
+          type: integer
+          default: 7
+          description: Número de días a planificar
+      required: []
+
+    DayMenu:
+      type: object
+      properties:
+        day:
+          type: string
+        lunch:
+          $ref: "#/components/schemas/MealPlan"
+        dinner:
+          $ref: "#/components/schemas/MealPlan"
+      required:
+        - day
+        - lunch
+        - dinner
+
+    MealPlan:
+      type: object
+      properties:
+        primero:
+          $ref: "#/components/schemas/Recipe"
+        segundo:
+          $ref: "#/components/schemas/Recipe"
+      required: []
+
+    WeeklyMenu:
+      type: object
+      properties:
+        id:
+          type: integer
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayMenu"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - days
+
+    GenerateShoppingListInput:
+      type: object
+      properties:
+        menuId:
+          type: integer
+      required:
+        - menuId
+
+    ShoppingListItem:
+      type: object
+      properties:
+        ingredient:
+          type: string
+        recipes:
+          type: array
+          items:
+            type: string
+        mercadonaProducts:
+          type: array
+          items:
+            $ref: "#/components/schemas/MercadonaProduct"
+      required:
+        - ingredient
+        - recipes
+
+    ShoppingList:
+      type: object
+      properties:
+        menuId:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShoppingListItem"
+        generatedAt:
+          type: string
+          format: date-time
+      required:
+        - menuId
+        - items
+
+    MercadonaSearchInput:
+      type: object
+      properties:
+        ingredients:
+          type: array
+          items:
+            type: string
+      required:
+        - ingredients
+
+    MercadonaProduct:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        unit:
+          type: string
+        thumbnail:
+          type: string
+        ingredient:
+          type: string
+      required:
+        - id
+        - name
+        - ingredient
+
+    MercadonaSearchResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShoppingListItem"
+      required:
+        - results

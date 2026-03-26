@@ -1,0 +1,711 @@
+=== Tortilladepatata ===
+Title: Tortilla de patata
+Ingredients:
+Huevos
+Patatas
+Cebolla
+tomates
+Instructions:
+
+=== Albndigas ===
+Title: Albóndigas
+Ingredients:
+Carne picada
+Pan bimbo
+Tomates
+Huevos
+Instructions:
+
+=== Gazpacho ===
+Title: Gazpacho
+Ingredients:
+Tomates
+1 pepino
+2 pimientos
+2 ajos
+Instructions:
+
+=== Setasalaplancha ===
+Title: Setas a la plancha
+Ingredients:
+Setas
+Taquitos jamón serrano
+Instructions:
+
+=== Esprragostrigueros ===
+Title: Espárragos trigueros
+Ingredients:
+Espárragos trigueros
+Instructions:
+
+=== Vichissoise ===
+Title: Vichissoise
+Ingredients:
+Puerros
+Patatas
+Leche ideal
+Nata liquida
+Instructions:
+
+=== Sopadecebolla ===
+Title: Sopa de cebolla
+Ingredients:
+Cebollas
+Harina
+Mantequilla
+Vino blanco
+Queso gouda
+Instructions:
+
+=== Calabacncontomatearcoiris ===
+Title: Calabacín con tomate arcoiris
+Ingredients:
+Calabacín
+Tomates
+Nata
+Queso rallado
+Queso gouda o havarti
+Instructions:
+
+=== Sandwich ===
+Title: Sandwich
+Ingredients:
+Pan bimbo
+Jamón york
+Queso lonchas
+Nata
+Instructions:
+
+=== Quiche ===
+Title: Quiche
+Ingredients:
+Hojaldre
+Bacon en trocitos
+Nata
+Huevos
+Queso gouda
+Instructions:
+
+=== Salchichasalvino ===
+Title: Salchichas al vino
+Ingredients:
+Salchichas de pollo
+Vino blanco
+Cebolla
+1 hoja de laurel
+Limón
+Instructions:
+
+=== Merluzaalhornoconajos ===
+Title: Merluza al horno con ajos
+Ingredients:
+Merluza abierta sin espinas
+Aojos
+Limón
+Instructions:
+
+=== Merluzafritarebozada ===
+Title: Merluza frita rebozada
+Ingredients:
+Merluza en rodajas
+Instructions:
+
+=== Pollodelaabuela ===
+Title: Pollo de la abuela
+Ingredients:
+Muslos de pollo
+Tacos de jamón Serrano
+Vino blanco
+Limón
+1 cabeza de ajos
+Instructions:
+
+=== Espaguettis ===
+Title: Espaguettis
+Ingredients:
+Espaguetis
+Tomates
+Queso rallado de pasta
+Instructions:
+
+=== Croquetas ===
+Title: Croquetas
+Ingredients:
+Harina
+Pan rallado
+Jamón Serrano en tacos
+Leche entera
+Huevos
+Pollo?
+Instructions:
+
+=== Purdeverdura ===
+Title: Puré de verdura
+Ingredients:
+Patatas
+Calabacín
+Judías verdes
+Zanahorias
+1 puerro
+Pollos o ternera
+Cebolla o tomate
+Instructions:
+
+=== Pechugasdepolloempanadas ===
+Title: Pechugas de pollo empanadas
+Ingredients:
+Pechugas de pollo
+Pan rallado
+Huevos
+Instructions:
+
+=== Doradaolubinaalasal ===
+Title: Dorada o lubina a la sal
+Ingredients:
+Doradas o lubinas 3
+Sal gorda
+Instructions:
+
+=== Filetesdeterneraalaplancha ===
+Title: Filetes de ternera a la plancha
+Ingredients:
+Filetes de ternera
+Instructions:
+
+=== Sopadeletras ===
+Title: Sopa de letras
+Ingredients:
+Hueso de jamón para el caldo
+Verduras para sopa:
+Puerros
+Zanahorias
+Cebollas
+Fideos o letras
+Instructions:
+
+=== Pasteldesandwich ===
+Title: Pastel de sandwich
+Ingredients:
+Pan bimbo
+Jamón York
+Queso de lonchas
+Nata líquida
+Instructions:
+
+=== Brcoliconmayonesa ===
+Title: Brócoli con mayonesa
+Ingredients:
+Brócoli
+Aceite del rojo
+Limón
+1 huevo
+Instructions:
+
+=== Cogollosconanchoas ===
+Title: Cogollos con anchoas
+Ingredients:
+Cogollos
+Anchoas
+Instructions:
+
+=== Ensaladadercula ===
+Title: Ensalada de rúcula
+Ingredients:
+Rúcula
+Queso curado
+Tomatitos cherry
+Instructions:
+
+=== Ensaladamurciana ===
+Title: Ensalada murciana
+Ingredients:
+Tomates enteros de bote
+Huevos
+Aceitunas negras
+Cebolla dulce
+Atún
+Instructions:
+
+=== Ensaladagourmet ===
+Title: Ensalada gourmet
+Ingredients:
+Ensalada gourmet
+Queso curado o azul
+Anacardos o nueces
+Arándanos
+Bayas de Goji
+Aguacates
+Instructions:
+
+=== Ensaladacaprese ===
+Title: Ensalada caprese
+Ingredients:
+Mozzarella
+Tomates de ensalada (RAF)
+Instructions:
+
+=== Jamoncitos ===
+Title: Jamoncitos
+Ingredients:
+Jamón cortado 1 dedo de gordo
+Harina
+Huevo
+Pan rallado
+Instructions:
+
+=== Lentejas ===
+Title: Lentejas
+Ingredients:
+Lentejas
+Chorizo
+Cebolla
+Zanahorias
+Patatas
+Instructions:
+
+=== ArrozblancocontomateyjamnYork ===
+Title: Arroz blanco con tomate y jamón York
+Ingredients:
+Arroz
+Jamón York
+Tomates
+Ajos
+Instructions:
+
+=== Pizza ===
+Title: Pizza
+Ingredients:
+Harina
+Tomate
+Mozzarella
+Jamón York
+Instructions:
+
+=== Huevosfritosconpatatas ===
+Title: Huevos fritos con patatas
+Ingredients:
+Huevos
+Patatas
+Jamón serrano
+Instructions:
+
+=== Huevosrevueltosconjamnychampiones ===
+Title: Huevos revueltos con jamón y champiñones
+Ingredients:
+Huevos
+Jamón Serrano
+Champiñones
+Instructions:
+
+=== Polloasado ===
+Title: Pollo asado
+Ingredients:
+Muslos de pollo
+Instructions:
+
+=== Arrozalamilanesa ===
+Title: Arroz a la milanesa
+Ingredients:
+Arroz
+Champiñones
+Vino blanco
+Queso rallado fuerte tipo pasta
+Instructions:
+
+=== Habasconjamn ===
+Title: Habas con jamón
+Ingredients:
+Habas congeladas
+Tacos de jamón Serrano
+Cebolla frita
+Instructions:
+
+=== Pechugasdepolloalamostaza ===
+Title: Pechugas de pollo a la mostaza
+Ingredients:
+Pechugas de pollo
+Mostaza en grano
+Cebolla frita
+Nata líquida
+Instructions:
+
+=== Cremadezanahoria ===
+Title: Crema de zanahoria
+Ingredients:
+Zanahorias
+1 puerro
+Queso Philadelphia
+1 patata
+1/2 avecrem
+Instructions:
+
+=== Solomilloalroquefort ===
+Title: Solomillo al roquefort
+Ingredients:
+Solomillos
+Queso azul
+Nata
+Vino blanco
+Instructions:
+
+=== Ensaladadeespinacas ===
+Title: Ensalada de espinacas
+Ingredients:
+Espinacas
+Queso de cabra
+Salmón ahumado
+Anacardos
+Pasas
+Cebolla confitada
+Instructions:
+
+=== Moussedechocolate ===
+Title: Mousse de chocolate
+Ingredients:
+Chocolate negro
+Mantequilla
+Huevos
+Chocolate blanco
+Instructions:
+
+=== Pisto ===
+Title: Pisto
+Ingredients:
+Tomate
+Pimiento verde
+Patata
+Cebolla
+Calabacín
+Instructions:
+
+=== Bsicos ===
+Title: Básicos
+Ingredients:
+Yogures naturales
+Yogures fresa
+Leche
+Naranjas
+Papel higiénico
+Plátano, manzana, pera
+Aceite
+Tomates
+Bimbo
+Jamón York
+Queso
+café
+Pan
+Cereales kellogs k
+Galletas
+Actimeles
+Agua de peinado
+Fresas
+Detergente lavadora
+Lavavajillas
+Oxiactive
+Fregasuelos
+Fairy
+Detergente baños
+Tampax
+Toallitas intimas
+Instructions:
+
+=== Gallos ===
+Title: Gallos
+Ingredients:
+Gallos
+Mantequilla
+Limón
+Instructions:
+
+=== Calamaresfritos ===
+Title: Calamares fritos
+Ingredients:
+Calamares
+Instructions:
+
+=== Berenjenasconmozosarmella ===
+Title: Berenjenas con mozos armella
+Ingredients:
+Berenjenas
+Moza regla
+Tomates
+Instructions:
+
+=== Bizcocho ===
+Title: Bizcocho
+Ingredients:
+Huevos
+Limón
+Harina
+Azúcar
+Royal
+Aceite rojo
+Instructions:
+
+=== Sopadecalabacn ===
+Title: Sopa de calabacín
+Ingredients:
+Calabacín
+Cebolla frita
+Quesitos
+Patata
+Instructions:
+
+=== Atncontomate ===
+Title: Atún con tomate
+Ingredients:
+Atún
+Tomate
+Cebolla
+Instructions:
+
+=== Patatasderemoste ===
+Title: Patatas de remoste
+Ingredients:
+Patatas
+Cebolla frita
+Chorizo
+Instructions:
+
+=== Sajonia ===
+Title: Sajonia
+Ingredients:
+Sajonia
+Instructions:
+
+=== Salmn ===
+Title: Salmón
+Ingredients:
+Salmón
+Sal gorda
+Instructions:
+
+=== Judasverdesconjamn ===
+Title: Judías verdes con jamón
+Ingredients:
+Judías verdes
+Cebolla
+Tacos de jamón Serrano
+Instructions:
+
+=== Lomoconqueso ===
+Title: Lomo con queso
+Ingredients:
+Cinta de lomo
+Vino blanco
+Queso havarti lonchas
+Champiñones
+Mantequilla
+Maizena
+Instructions:
+
+=== Ensaladagriega ===
+Title: Ensalada griega
+Ingredients:
+Tomates
+Pepino 1
+Pimiento verde 1
+1 cebolla pequeña
+Queso feta
+Aceitunas negras
+Instructions:
+
+=== Alcachofas ===
+Title: Alcachofas
+Ingredients:
+Alcachofas
+Instructions:
+
+=== Guisantesconjamn ===
+Title: Guisantes con jamón
+Ingredients:
+Guisantes
+Jamón Serrano en tacos
+Cebolla
+Instructions:
+
+=== Lasaa ===
+Title: Lasaña
+Ingredients:
+Maizena
+Harina
+Leche
+Carne picada
+Tómate
+Pasta lasaña
+Instructions:
+
+=== VerduraGonzalo ===
+Title: Verdura Gonzalo
+Ingredients:
+Zanahorias
+Puerro
+Judías
+Patata
+Calabacín
+Pollo
+Ternera
+Instructions:
+
+=== Verdurasalaplancha ===
+Title: Verduras a la plancha
+Ingredients:
+Pimiento rojo
+Cebolla dulce
+Calabacín
+Berenjena
+Setas
+Instructions:
+
+=== Magracontomate ===
+Title: Magra con tomate
+Ingredients:
+Tomates
+Magro de cerdo
+Cebolla
+Pimiento verde
+Instructions:
+
+=== Ensaladillarusa ===
+Title: Ensaladilla rusa
+Ingredients:
+Bolsa ensaladilla
+Aceitunas
+Atún
+Huevo duro
+Aceite rojo
+Limón
+Instructions:
+
+=== Boqueronesfritos ===
+Title: Boquerones fritos
+Aceite
+Harina
+Ingredients:
+Boquerones
+Harina
+Aceite
+Instructions:
+
+=== Ensaladadeverano ===
+Title: Ensalada de verano
+Ingredients:
+Tomate de ensalada
+Atún
+Aceitunas verdes
+Huevo
+Cebolla dulce
+Palmitos
+Instructions:
+
+=== Carneguisada ===
+Title: Carne guisada
+Ingredients:
+Ternera
+Zanahorias
+Champiñones
+Instructions:
+
+=== ChuletadeSajonia ===
+Title: Chuleta de Sajonia
+Ingredients:
+Sajonia
+Instructions:
+
+=== Cervezas ===
+Title: Cervezas
+Ingredients:
+Instructions:
+
+=== Pulpoalagallega ===
+Title: Pulpo a la gallega
+Ingredients:
+Pulpo
+Patatas
+Pimenton
+Instructions:
+
+=== Pimientosdelpadrn ===
+Title: Pimientos del padrón
+Ingredients:
+pimientos del padrón
+Instructions:
+
+=== Mazmazorcas ===
+Title: Maíz mazorcas
+Ingredients:
+Mazorcas maíz
+Instructions:
+
+=== Pechugasvillaroy ===
+Title: Pechugas villaroy
+Ingredients:
+Pechugas de pollo
+Harina
+Pan rallado
+Leche
+Instructions:
+
+=== Revueltodeajetesygambas ===
+Title: Revuelto de ajetes y gambas
+Ingredients:
+Ajetes
+Gambas
+Huevos
+Instructions:
+
+=== Cintadelomo ===
+Title: Cinta de lomo
+Ingredients:
+Lomo en filetes
+Instructions:
+
+=== Rape ===
+Title: Rape
+Ingredients:
+Rape
+Instructions:
+
+=== Bacalaocontomate ===
+Title: Bacalao con tomate
+Ingredients:
+Bacalao
+Tomate
+Cebolla
+Pimiento verde
+Instructions:
+
+=== Salmorejo ===
+Title: Salmorejo
+Ingredients:
+Tomate
+Pan
+Cebolla
+Instructions:
+
+=== Huevosconbechamel ===
+Title: Huevos con bechamel
+Harina
+Jamón
+Leche
+Ingredients:
+Huevos
+Harina
+Leche
+Jamón
+Instructions:
+
+=== Consom ===
+Title: Consomé
+Ingredients:
+Hueso
+Medio pollo
+Estrellitas
+Zanahorias
+Trozo de ternera
+Instructions:
+
+=== Tomatefrito ===
+Title: Tomate frito
+Ingredients:
+Tomate

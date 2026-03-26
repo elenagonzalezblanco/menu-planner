@@ -1,0 +1,262 @@
+metadata": {
+    "version": "1.0",
+    "lastUpdated": "2026-01-15",
+    "totalFiles": 29,
+    "categories": {
+      "recetas": 21,
+      "ingredientes": 7,
+      "otros": 1
+    }
+  },
+  "recetas": {
+    "primeros": {
+      "nombre": "Primeros Platos",
+      "descripcion": "Sopas, cremas y platos de inicio",
+      "cantidad": 7,
+      "items": [
+        {
+          "id": "sopadecebolla",
+          "nombre": "Sopa de cebolla",
+          "archivo": "Sopadecebolla.txt",
+          "ruta": "Recetas/Primeros/Sopadecebolla.txt",
+          "tipo": "receta",
+          "categoria": "primero"
+        },
+        {
+          "id": "sopadecalabacin",
+          "nombre": "Sopa de calabacÃ­n",
+          "archivo": "Sopadecalabacn.txt",
+          "ruta": "Recetas/Primeros/Sopadecalabacn.txt",
+          "tipo": "receta",
+          "categoria": "primero"
+        },
+        {
+          "id": "sopadeletras",
+          "nombre": "Sopa de letras",
+          "archivo": "Sopadeletras.txt",
+          "ruta": "Recetas/Primeros/Sopadeletras.txt",
+          "tipo": "receta",
+          "categoria": "primero"
+        },
+        {
+          "id": "salmorejo",
+          "nombre": "Salmorejo",
+          "archivo": "Salmorejo.txt",
+          "ruta": "Recetas/Primeros/Salmorejo.txt",
+          "tipo": "receta",
+          "categoria": "primero"
+        },
+        {
+          "id": "vichyssoise",
+          "nombre": "Vichyssoise",
+          "archivo": "Vichissoise.txt",
+          "ruta": "Recetas/Primeros/Vichissoise.txt",
+          "tipo": "receta",
+          "categoria": "primero"
+        },
+        {
+          "id": "purdeverdura",
+          "nombre": "PurÃ© de verdura",
+          "archivo": "Purdeverdura.txt",
+          "ruta": "Recetas/Primeros/Purdeverdura.txt",
+          "tipo": "receta",
+          "categoria": "primero"
+        },
+        {
+          "id": "quiche",
+          "nombre": "Quiche",
+          "archivo": "Quiche.txt",
+          "ruta": "Recetas/Primeros/Quiche.txt",
+          "tipo": "receta",
+          "categoria": "primero"
+        }
+      ]
+    },
+    "segundos": {
+      "nombre": "Segundos Platos",
+      "descripcion": "ProteÃ­nas y vegetales cocinados",
+      "cantidad": 9,
+      "items": [
+        {
+          "id": "pulpoalagallega",
+          "nombre": "Pulpo a la gallega",
+          "archivo": "Pulpoalagallega.txt",
+          "ruta": "Recetas/Segundos/Pulpoalagallega.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        },
+        {
+          "id": "salmon",
+          "nombre": "SalmÃ³n",
+          "archivo": "Salmn.txt",
+          "ruta": "Recetas/Segundos/Salmn.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        },
+        {
+          "id": "rape",
+          "nombre": "Rape",
+          "archivo": "Rape.txt",
+          "ruta": "Recetas/Segundos/Rape.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        },
+        {
+          "id": "revueltodeajetesygambas",
+          "nombre": "Revuelto de ajetes y gambas",
+          "archivo": "Revueltodeajetesygambas.txt",
+          "ruta": "Recetas/Segundos/Revueltodeajetesygambas.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        },
+        {
+          "id": "salchichasalvino",
+          "nombre": "Salchichas al vino",
+          "archivo": "Salchichasalvino.txt",
+          "ruta": "Recetas/Segundos/Salchichasalvino.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        },
+        {
+          "id": "solomilloalroquefort",
+          "nombre": "Solomillo al roquefort",
+          "archivo": "Solomilloalroquefort.txt",
+          "ruta": "Recetas/Segundos/Solomilloalroquefort.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        },
+        {
+          "id": "setasalaplancha",
+          "nombre": "Setas a la plancha",
+          "archivo": "Setasalaplancha.txt",
+          "ruta": "Recetas/Segundos/Setasalaplancha.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        },
+        {
+          "id": "verdurasalaplancha",
+          "nombre": "Verduras a la plancha",
+          "archivo": "Verdurasalaplancha.txt",
+          "ruta": "Recetas/Segundos/Verdurasalaplancha.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        },
+        {
+          "id": "verduragonsalo",
+          "nombre": "Verdura Gonzalo",
+          "archivo": "VerduraGonzalo.txt",
+          "ruta": "Recetas/Segundos/VerduraGonzalo.txt",
+          "tipo": "receta",
+          "categoria": "segundo"
+        }
+      ]
+    },
+    "otros": {
+      "nombre": "Otros",
+      "descripcion": "AcompaÃ±amientos y otros platos",
+      "cantidad": 4,
+      "items": [
+        {
+          "id": "sajonia",
+          "nombre": "Sajonia",
+          "archivo": "Sajonia.txt",
+          "ruta": "Recetas/Otros/Sajonia.txt",
+          "tipo": "receta",
+          "categoria": "otro"
+        },
+        {
+          "id": "tomatefrito",
+          "nombre": "Tomate frito",
+          "archivo": "Tomatefrito.txt",
+          "ruta": "Recetas/Otros/Tomatefrito.txt",
+          "tipo": "receta",
+          "categoria": "otro"
+        },
+        {
+          "id": "tortilladepatata",
+          "nombre": "Tortilla de patata",
+          "archivo": "Tortilladepatata.txt",
+          "ruta": "Recetas/Otros/Tortilladepatata.txt",
+          "tipo": "receta",
+          "categoria": "otro"
+        },
+        {
+          "id": "sandwich",
+          "nombre": "SÃ¡ndwich",
+          "archivo": "Sandwich.txt",
+          "ruta": "Recetas/Otros/Sandwich.txt",
+          "tipo": "receta",
+          "categoria": "otro"
+        }
+      ]
+    }
+  },
+  "ingredientes": {
+    "nombre": "Ingredientes",
+    "descripcion": "Listados de ingredientes y referencias",
+    "cantidad": 7,
+    "items": [
+      {
+        "id": "ingredientes_por_receta_1",
+        "nombre": "Ingredientes por receta",
+        "archivo": "ingredientes_por_receta.txt",
+        "ruta": "Ingredientes/ingredientes_por_receta.txt",
+        "tipo": "ingredientes"
+      },
+      {
+        "id": "ingredientes_por_receta_2",
+        "nombre": "Ingredientes por receta (copia)",
+        "archivo": "ingredientes_por_receta (1).txt",
+        "ruta": "Ingredientes/ingredientes_por_receta (1).txt",
+        "tipo": "ingredientes"
+      },
+      {
+        "id": "listado_ingredientes",
+        "nombre": "Listado de ingredientes",
+        "archivo": "listado_ingredientes.txt",
+        "ruta": "Ingredientes/listado_ingredientes.txt",
+        "tipo": "ingredientes"
+      },
+      {
+        "id": "listado_ingredientes_limpios_1",
+        "nombre": "Listado de ingredientes limpios",
+        "archivo": "listado_ingredientes_limpios.txt",
+        "ruta": "Ingredientes/listado_ingredientes_limpios.txt",
+        "tipo": "ingredientes"
+      },
+      {
+        "id": "listado_ingredientes_limpios_2",
+        "nombre": "Listado de ingredientes limpios (copia)",
+        "archivo": "listado_ingredientes_limpios (1).txt",
+        "ruta": "Ingredientes/listado_ingredientes_limpios (1).txt",
+        "tipo": "ingredientes"
+      },
+      {
+        "id": "listado_ingredientes_solo",
+        "nombre": "Listado de ingredientes solo",
+        "archivo": "listado_ingredientes_solo.txt",
+        "ruta": "Ingredientes/listado_ingredientes_solo.txt",
+        "tipo": "ingredientes"
+      },
+      {
+        "id": "listado_primeros_y_segundos",
+        "nombre": "Listado primeros y segundos",
+        "archivo": "listado_primeros_y_segundos.txt",
+        "ruta": "Ingredientes/listado_primeros_y_segundos.txt",
+        "tipo": "ingredientes"
+      }
+    ]
+  },
+  "otros": {
+    "nombre": "Otros",
+    "descripcion": "Documentos adicionales",
+    "cantidad": 1,
+    "items": [
+      {
+        "id": "calendario_recetas",
+        "nombre": "Calendario de recetas",
+        "archivo": "calendario_recetas.pdf",
+        "ruta": "Otros/calendario_recetas.pdf",
+        "tipo": "documento",
+        "formato": "pdf"
+      }

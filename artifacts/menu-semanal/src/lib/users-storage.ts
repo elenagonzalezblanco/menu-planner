@@ -4,7 +4,9 @@ export interface User {
   avatar: string;
   email?: string;
   mercadonaEmail?: string;
-  geminiApiKey?: string;
+  azureEndpoint?: string;
+  azureDeployment?: string;
+  azureApiKey?: string;
   createdAt: string;
 }
 

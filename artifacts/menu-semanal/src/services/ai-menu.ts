@@ -66,45 +66,47 @@ REGLAS para el JSON:
 }
 
 export async function chatWithMenuAgent(
-  apiKey: string,
+  azureEndpoint: string,
+  azureDeployment: string,
+  azureApiKey: string,
   messages: ChatMessage[],
   recipes: Recipe[],
 ): Promise<{ text: string; menu?: DayMenu[] }> {
   const systemPrompt = buildSystemPrompt(recipes);
 
+  // Normalize endpoint: remove trailing slash
+  const base = azureEndpoint.replace(/\/$/, '');
+  const url = `${base}/openai/deployments/${azureDeployment}/chat/completions?api-version=2024-02-01`;
+
   const body = {
-    system_instruction: {
-      parts: [{ text: systemPrompt }],
-    },
-    contents: messages.map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    })),
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 4096,
-    },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ],
+    temperature: 0.7,
+    max_tokens: 4096,
   };
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': azureApiKey,
     },
-  );
+    body: JSON.stringify(body),
+  });
 
   if (!res.ok) {
     const errText = await res.text();
-    let friendlyError = `Error de la API de Gemini (${res.status}).`;
-    if (res.status === 400) friendlyError = 'Clave de API inválida. Comprueba que es correcta.';
+    let friendlyError = `Error de Azure OpenAI (${res.status}).`;
+    if (res.status === 401) friendlyError = 'Clave de API inválida. Comprueba que es correcta.';
+    if (res.status === 404) friendlyError = 'Endpoint o deployment no encontrado. Revisa la URL y el nombre del deployment.';
     if (res.status === 429) friendlyError = 'Has superado el límite de peticiones. Espera un momento.';
     throw new Error(`${friendlyError} Detalle: ${errText.slice(0, 200)}`);
   }
 
   const data = await res.json();
-  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  const text: string = data.choices?.[0]?.message?.content ?? '';
 
   // Try to parse embedded menu JSON
   const menuMatch = text.match(/<MENU>([\s\S]*?)<\/MENU>/);

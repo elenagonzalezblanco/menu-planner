@@ -16,14 +16,18 @@ export function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
 
   const [email, setEmail] = useState(currentUser?.email ?? "");
   const [mercadonaEmail, setMercadonaEmail] = useState(currentUser?.mercadonaEmail ?? "");
-  const [geminiApiKey, setGeminiApiKey] = useState(currentUser?.geminiApiKey ?? "");
+  const [azureEndpoint, setAzureEndpoint] = useState(currentUser?.azureEndpoint ?? "");
+  const [azureDeployment, setAzureDeployment] = useState(currentUser?.azureDeployment ?? "gpt-4o");
+  const [azureApiKey, setAzureApiKey] = useState(currentUser?.azureApiKey ?? "");
 
   function handleSave() {
     if (!currentUser) return;
     updateUser(currentUser.id, {
       email: email.trim() || undefined,
       mercadonaEmail: mercadonaEmail.trim() || undefined,
-      geminiApiKey: geminiApiKey.trim() || undefined,
+      azureEndpoint: azureEndpoint.trim() || undefined,
+      azureDeployment: azureDeployment.trim() || undefined,
+      azureApiKey: azureApiKey.trim() || undefined,
     });
     toast({ title: "Perfil actualizado", description: "Tus datos se han guardado correctamente." });
     onClose();
@@ -94,32 +98,50 @@ export function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
             </p>
           </div>
 
-          {/* Gemini API Key */}
-          <div className="space-y-1.5">
+          {/* Azure OpenAI */}
+          <div className="space-y-3">
             <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
               <Key className="w-3.5 h-3.5" />
-              API Key de Gemini
+              Azure OpenAI
               <span className="font-normal">(para el asistente IA)</span>
             </label>
-            <Input
-              type="password"
-              placeholder="AIza..."
-              value={geminiApiKey}
-              onChange={(e) => setGeminiApiKey(e.target.value)}
-              className="rounded-xl font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground">
-              Obtén tu clave gratuita en{" "}
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary underline underline-offset-2"
-              >
-                Google AI Studio
-              </a>
-              . Se guarda solo en este dispositivo.
-            </p>
+            <div className="space-y-2">
+              <Input
+                type="text"
+                placeholder="https://mi-recurso.openai.azure.com"
+                value={azureEndpoint}
+                onChange={(e) => setAzureEndpoint(e.target.value)}
+                className="rounded-xl font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">Endpoint del recurso Azure OpenAI</p>
+              <Input
+                type="text"
+                placeholder="gpt-4o"
+                value={azureDeployment}
+                onChange={(e) => setAzureDeployment(e.target.value)}
+                className="rounded-xl font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">Nombre del deployment (ej. gpt-4o, gpt-4-turbo)</p>
+              <Input
+                type="password"
+                placeholder="API Key de Azure OpenAI..."
+                value={azureApiKey}
+                onChange={(e) => setAzureApiKey(e.target.value)}
+                className="rounded-xl font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Encuéntrala en{" "}
+                <a
+                  href="https://portal.azure.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary underline underline-offset-2"
+                >
+                  Azure Portal
+                </a>{" "}
+                → tu recurso OpenAI → Claves y punto de conexión. Se guarda solo en este dispositivo.
+              </p>
+            </div>
           </div>
 
           {/* Buttons */}

@@ -202,11 +202,13 @@ export default function MenuPage() {
   const handleAiSend = async () => {
     const text = aiInput.trim();
     if (!text || aiLoading) return;
-    const apiKey = currentUser?.geminiApiKey;
-    if (!apiKey) {
+    const azureEndpoint = currentUser?.azureEndpoint;
+    const azureDeployment = currentUser?.azureDeployment || "gpt-4o";
+    const azureApiKey = currentUser?.azureApiKey;
+    if (!azureEndpoint || !azureApiKey) {
       toast({
-        title: "Falta la API Key de Gemini",
-        description: "Configura tu clave en el icono ⚙️ de ajustes del perfil.",
+        title: "Falta la configuración de Azure OpenAI",
+        description: "Configura el endpoint y la API Key en el icono ⚙️ de ajustes del perfil.",
         variant: "destructive",
       });
       return;
@@ -216,7 +218,7 @@ export default function MenuPage() {
     setAiInput("");
     setAiLoading(true);
     try {
-      const result = await chatWithMenuAgent(apiKey, newMessages, recipes);
+      const result = await chatWithMenuAgent(azureEndpoint, azureDeployment, azureApiKey, newMessages, recipes);
       setAiMessages([...newMessages, { role: "assistant", content: result.text }]);
       if (result.menu) {
         setPendingAiMenu(result.menu);
@@ -478,11 +480,11 @@ export default function MenuPage() {
           {chatMode === "ai" && (
             <div className="flex flex-col">
               {/* API key warning */}
-              {!currentUser?.geminiApiKey && (
+              {(!currentUser?.azureEndpoint || !currentUser?.azureApiKey) && (
                 <div className="mx-4 mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
                   <Settings className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>
-                    Configura tu API Key de Gemini en los{" "}
+                    Configura tu endpoint y API Key de Azure OpenAI en los{" "}
                     <strong>ajustes del perfil</strong> (icono ⚙️) para usar el asistente.
                   </span>
                 </div>

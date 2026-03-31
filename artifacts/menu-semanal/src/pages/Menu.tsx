@@ -202,9 +202,9 @@ export default function MenuPage() {
   const handleAiSend = async () => {
     const text = aiInput.trim();
     if (!text || aiLoading) return;
-    const azureEndpoint = currentUser?.azureEndpoint;
-    const azureDeployment = currentUser?.azureDeployment || "gpt-4o";
-    const azureApiKey = currentUser?.azureApiKey;
+    const azureEndpoint = currentUser?.azureEndpoint || import.meta.env.VITE_AZURE_ENDPOINT;
+    const azureDeployment = currentUser?.azureDeployment || import.meta.env.VITE_AZURE_DEPLOYMENT || "gpt-4o";
+    const azureApiKey = currentUser?.azureApiKey || import.meta.env.VITE_AZURE_API_KEY;
     if (!azureEndpoint || !azureApiKey) {
       toast({
         title: "Falta la configuración de Azure OpenAI",
@@ -479,8 +479,8 @@ export default function MenuPage() {
           {/* AI Chat mode */}
           {chatMode === "ai" && (
             <div className="flex flex-col">
-              {/* API key warning */}
-              {(!currentUser?.azureEndpoint || !currentUser?.azureApiKey) && (
+              {/* API key warning — solo si tampoco hay env vars configurados */}
+              {(!currentUser?.azureEndpoint || !currentUser?.azureApiKey) && (!import.meta.env.VITE_AZURE_ENDPOINT || !import.meta.env.VITE_AZURE_API_KEY) && (
                 <div className="mx-4 mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
                   <Settings className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>

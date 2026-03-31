@@ -21,7 +21,7 @@ interface UserContextValue {
   currentUser: User | null;
   allUsers: User[];
   setCurrentUser: (id: string) => void;
-  createUser: (name: string, avatar: string) => User;
+  createUser: (name: string, avatar: string, email?: string) => User;
   deleteUser: (id: string) => void;
   logout: () => void;
   isLoading: boolean;
@@ -65,8 +65,8 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
     }
   }, []);
 
-  const createUser = useCallback((name: string, avatar: string): User => {
-    const user = storageCreateUser(name, avatar);
+  const createUser = useCallback((name: string, avatar: string, email?: string): User => {
+    const user = storageCreateUser(name, avatar, email);
     setAllUsers(getAllUsers());
     return user;
   }, []);

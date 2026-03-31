@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useMenus, useGenerateMenu } from "@/hooks/use-menus";
 import { useRecipes } from "@/hooks/use-recipes";
 import { useGenerateShoppingList } from "@/hooks/use-shopping";
+import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -28,6 +29,7 @@ import {
   Loader2,
   Printer,
   GripVertical,
+  Mail,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -84,6 +86,7 @@ export default function MenuPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const generateMenu = useGenerateMenu();
+  const { currentUser } = useUser();
   const [isEditing, setIsEditing] = useState(false);
   const [localDays, setLocalDays] = useState<DayPlan[] | null>(null);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
@@ -98,6 +101,30 @@ export default function MenuPage() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+
+  const sendMenuByEmail = () => {
+    if (!latestMenu || !displayDays) return;
+    const days = displayDays as DayPlan[];
+    const lines: string[] = ["MENÚ SEMANAL", "═".repeat(40), ""];
+    days.forEach((d) => {
+      lines.push(`📅 ${d.day.toUpperCase()}`);
+      const fmt = (meal: MealPlan | null | undefined, label: string) => {
+        if (!meal) return;
+        lines.push(`  ${label}:`);
+        if (meal.primero) lines.push(`    Primero: ${meal.primero.name}`);
+        if (meal.primero2) lines.push(`    Primero: ${meal.primero2.name}`);
+        if (meal.segundo) lines.push(`    Segundo: ${meal.segundo.name}`);
+        if (meal.segundo2) lines.push(`    Segundo: ${meal.segundo2.name}`);
+      };
+      fmt(d.lunch, "Comida ☀️");
+      fmt(d.dinner, "Cena 🌙");
+      lines.push("");
+    });
+    const body = encodeURIComponent(lines.join("\n"));
+    const subject = encodeURIComponent("Menú Semanal");
+    const to = currentUser?.email ? encodeURIComponent(currentUser.email) : "";
+    window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");
+  };
 
   const handleCreateShoppingList = (menuId: string) => {
     generateShopping.mutate(menuId, {
@@ -221,6 +248,14 @@ export default function MenuPage() {
                 >
                   <Printer className="w-4 h-4" />
                   Imprimir
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-xl px-4 border-border/60 gap-2"
+                  onClick={sendMenuByEmail}
+                >
+                  <Mail className="w-4 h-4" />
+                  Enviar por email
                 </Button>
                 <Button
                   variant="outline"

@@ -2,6 +2,7 @@ export interface User {
   id: string;
   name: string;
   avatar: string;
+  email?: string;
   createdAt: string;
 }
 
@@ -22,11 +23,12 @@ export function getUser(id: string): User | null {
   return getAllUsers().find((u) => u.id === id) ?? null;
 }
 
-export function createUser(name: string, avatar: string): User {
+export function createUser(name: string, avatar: string, email?: string): User {
   const user: User = {
     id: crypto.randomUUID(),
     name: name.trim(),
     avatar,
+    email: email?.trim() || undefined,
     createdAt: new Date().toISOString(),
   };
   const users = getAllUsers();

@@ -30,11 +30,12 @@ interface CreateFormProps {
 function CreateForm({ onCreated, onCancel, showCancel }: CreateFormProps) {
   const { createUser, setCurrentUser } = useUser();
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [avatar, setAvatar] = useState(EMOJI_OPTIONS[0]);
 
   function handleSubmit() {
     if (!name.trim()) return;
-    const user = createUser(name.trim(), avatar);
+    const user = createUser(name.trim(), avatar, email.trim() || undefined);
     setCurrentUser(user.id);
     onCreated(user);
   }
@@ -49,6 +50,17 @@ function CreateForm({ onCreated, onCancel, showCancel }: CreateFormProps) {
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           autoFocus
+          className="text-base h-12 rounded-xl"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-muted-foreground">Tu email <span className="text-muted-foreground/60 font-normal">(opcional, para recibir menús y listas)</span></label>
+        <Input
+          type="email"
+          placeholder="tu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           className="text-base h-12 rounded-xl"
         />
       </div>

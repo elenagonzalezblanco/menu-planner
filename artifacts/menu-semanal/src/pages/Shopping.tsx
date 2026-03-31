@@ -1,8 +1,9 @@
 import { useShoppingList } from "@/hooks/use-shopping";
 import { useMenus } from "@/hooks/use-menus";
 import { useExtraIngredients } from "@/hooks/use-extra-ingredients";
+import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, CheckCircle2, Store, Plus, X } from "lucide-react";
+import { ShoppingBag, CheckCircle2, Store, Plus, X, Mail } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ export default function ShoppingPage() {
   const latestMenu = menus.length > 0 ? menus[0] : null;
   const { data: shoppingList, isLoading } = useShoppingList(latestMenu?.id ?? '');
   const { items: extraItems, add: addExtra, remove: removeExtra } = useExtraIngredients(latestMenu?.id);
+  const { currentUser } = useUser();
   const [, setLocation] = useLocation();
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [newIngredient, setNewIngredient] = useState("");
@@ -31,6 +33,24 @@ export default function ShoppingPage() {
     addExtra(trimmed);
     setNewIngredient("");
     inputRef.current?.focus();
+  };
+
+  const sendShoppingByEmail = () => {
+    const apiItems = shoppingList?.items ?? [];
+    const lines: string[] = ["LISTA DE LA COMPRA", "═".repeat(40), ""];
+    apiItems.forEach((item: { ingredient: string; recipes: string[] }) => {
+      lines.push(`• ${item.ingredient}`);
+      if (item.recipes.length > 0) {
+        lines.push(`  (${item.recipes.join(", ")})`);
+      }
+    });
+    if (extraItems.length > 0) {
+      lines.push("", "Añadidos a mano:", ...extraItems.map((i: string) => `• ${i}`));
+    }
+    const body = encodeURIComponent(lines.join("\n"));
+    const subject = encodeURIComponent("Lista de la Compra");
+    const to = currentUser?.email ? encodeURIComponent(currentUser.email) : "";
+    window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");
   };
 
   if (!latestMenu) {
@@ -56,14 +76,25 @@ export default function ShoppingPage() {
           <h1 className="text-4xl font-display font-bold text-foreground">Lista de Compra</h1>
           <p className="text-muted-foreground mt-2 text-lg">Ingredientes consolidados para tu semana</p>
         </div>
-        <Button
-          onClick={() => setLocation("/mercadona")}
-          className="rounded-xl px-6 bg-secondary hover:bg-secondary/90 text-white shadow-lg shadow-secondary/30"
-          size="lg"
-        >
-          <Store className="w-5 h-5 mr-2" />
-          Buscar en Mercadona
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            onClick={sendShoppingByEmail}
+            variant="outline"
+            className="rounded-xl px-6 gap-2"
+            size="lg"
+          >
+            <Mail className="w-5 h-5" />
+            Enviar por email
+          </Button>
+          <Button
+            onClick={() => setLocation("/mercadona")}
+            className="rounded-xl px-6 bg-secondary hover:bg-secondary/90 text-white shadow-lg shadow-secondary/30"
+            size="lg"
+          >
+            <Store className="w-5 h-5 mr-2" />
+            Buscar en Mercadona
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

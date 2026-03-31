@@ -3,6 +3,8 @@ export interface User {
   name: string;
   avatar: string;
   email?: string;
+  mercadonaEmail?: string;
+  geminiApiKey?: string;
   createdAt: string;
 }
 
@@ -40,6 +42,18 @@ export function createUser(name: string, avatar: string, email?: string): User {
 export function deleteUser(id: string): void {
   const users = getAllUsers().filter((u) => u.id !== id);
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+export function updateUser(
+  id: string,
+  updates: Partial<Omit<User, 'id' | 'createdAt'>>,
+): User | null {
+  const users = getAllUsers();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx < 0) return null;
+  users[idx] = { ...users[idx], ...updates };
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  return users[idx];
 }
 
 export function getCurrentUserId(): string | null {

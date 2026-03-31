@@ -21,7 +21,9 @@ import {
   getMenu,
   generateMenu,
   deleteMenu,
+  saveMenuPlan,
   type WeeklyMenu,
+  type DayMenu,
 } from '../lib/menus-storage';
 
 import {
@@ -155,6 +157,17 @@ export function useDeleteMenu(): UseMutationResult<void, Error, string> {
   const userId = getCurrentUserId();
   return useMutation({
     mutationFn: id => Promise.resolve(deleteMenu(userId, id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: menusQueryKey(userId) });
+    },
+  });
+}
+
+export function useSaveMenuDays(): UseMutationResult<WeeklyMenu, Error, DayMenu[]> {
+  const queryClient = useQueryClient();
+  const userId = getCurrentUserId();
+  return useMutation({
+    mutationFn: days => Promise.resolve(saveMenuPlan(userId, days)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: menusQueryKey(userId) });
     },

@@ -12,6 +12,7 @@ import {
   getUser,
   createUser as storageCreateUser,
   deleteUser as storageDeleteUser,
+  updateUser as storageUpdateUser,
   getCurrentUserId,
   setCurrentUserId,
   clearCurrentUser,
@@ -22,6 +23,7 @@ interface UserContextValue {
   allUsers: User[];
   setCurrentUser: (id: string) => void;
   createUser: (name: string, avatar: string, email?: string) => User;
+  updateUser: (id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>) => User | null;
   deleteUser: (id: string) => void;
   logout: () => void;
   isLoading: boolean;
@@ -34,6 +36,7 @@ export const UserContext = createContext<UserContextValue>({
   createUser: () => {
     throw new Error("UserProvider not mounted");
   },
+  updateUser: () => null,
   deleteUser: () => {},
   logout: () => {},
   isLoading: true,
@@ -84,6 +87,20 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
     [currentUser]
   );
 
+  const updateUser = useCallback(
+    (id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): User | null => {
+      const updated = storageUpdateUser(id, updates);
+      if (updated) {
+        setAllUsers(getAllUsers());
+        if (currentUser?.id === id) {
+          setCurrentUserState(updated);
+        }
+      }
+      return updated;
+    },
+    [currentUser],
+  );
+
   const logout = useCallback(() => {
     clearCurrentUser();
     setCurrentUserState(null);
@@ -91,7 +108,7 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
 
   return (
     <UserContext.Provider
-      value={{ currentUser, allUsers, setCurrentUser, createUser, deleteUser, logout, isLoading }}
+      value={{ currentUser, allUsers, setCurrentUser, createUser, updateUser, deleteUser, logout, isLoading }}
     >
       {children}
     </UserContext.Provider>

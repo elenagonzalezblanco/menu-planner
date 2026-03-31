@@ -1,10 +1,14 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useMenus, useGenerateMenu } from "@/hooks/use-menus";
 import { useRecipes } from "@/hooks/use-recipes";
 import { useGenerateShoppingList } from "@/hooks/use-shopping";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { chatWithMenuAgent, type ChatMessage } from "@/services/ai-menu";
+import type { DayMenu } from "@/lib/menus-storage";
+import { generateId } from "@/lib/storage";
 import {
   Popover,
   PopoverContent,
@@ -33,6 +37,11 @@ import {
   Mail,
   Bookmark,
   Trash2,
+  Bot,
+  Send,
+  MessageCircle,
+  Shuffle,
+  Settings,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -102,6 +111,13 @@ export default function MenuPage() {
     const uid = getCurrentUserId();
     return uid ? listSavedMenus(uid) : [];
   });
+  // ── AI Chat state ──
+  const [chatMode, setChatMode] = useState<"random" | "ai">("random");
+  const [aiMessages, setAiMessages] = useState<ChatMessage[]>([]);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [pendingAiMenu, setPendingAiMenu] = useState<DayMenu[] | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   const recipes = recipesData as unknown as Recipe[];
@@ -177,8 +193,59 @@ export default function MenuPage() {
     window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");
   };
 
-  const handleCreateShoppingList = (menuId: string) => {
-    generateShopping.mutate(menuId, {
+  // ── AI Chat handlers ──
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [aiMessages]);
+
+  const handleAiSend = async () => {
+    const text = aiInput.trim();
+    if (!text || aiLoading) return;
+    const apiKey = currentUser?.geminiApiKey;
+    if (!apiKey) {
+      toast({
+        title: "Falta la API Key de Gemini",
+        description: "Configura tu clave en el icono ⚙️ de ajustes del perfil.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const newMessages: ChatMessage[] = [...aiMessages, { role: "user", content: text }];
+    setAiMessages(newMessages);
+    setAiInput("");
+    setAiLoading(true);
+    try {
+      const result = await chatWithMenuAgent(apiKey, newMessages, recipes);
+      setAiMessages([...newMessages, { role: "assistant", content: result.text }]);
+      if (result.menu) {
+        setPendingAiMenu(result.menu);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      setAiMessages([...newMessages, { role: "assistant", content: `⚠️ ${msg}` }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApplyAiMenu = async () => {
+    if (!pendingAiMenu) return;
+    const userId = getCurrentUserId();
+    if (!userId) return;
+    const newMenu: WeeklyMenu = {
+      id: generateId(),
+      days: pendingAiMenu,
+      createdAt: new Date().toISOString(),
+    };
+    const existing = storageGet<WeeklyMenu[]>(userId, "menus") ?? [];
+    storageSet(userId, "menus", [newMenu, ...existing]);
+    await queryClient.invalidateQueries({ queryKey: menusQueryKey(userId) });
+    setPendingAiMenu(null);
+    toast({ title: "¡Menú aplicado!", description: "El menú del asistente IA está listo." });
+  };
+
+  const handleCreateShoppingList = (menuId: string) => {    generateShopping.mutate(menuId, {
       onSuccess: () => {
         toast({ title: "Lista generada", description: "Lista de compra consolidada." });
         setLocation("/shopping");
@@ -359,22 +426,161 @@ export default function MenuPage() {
         </AnimatePresence>
 
         {/* ── GENERATE MENU PANEL ── */}
-        <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="font-semibold text-foreground">¿Quieres un menú nuevo?</p>
-            <p className="text-sm text-muted-foreground">Genera un menú semanal aleatorio basado en tus recetas.</p>
+        <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
+          {/* Mode toggle tabs */}
+          <div className="flex border-b border-border/50">
+            <button
+              onClick={() => setChatMode("random")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                chatMode === "random"
+                  ? "bg-primary/5 text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Shuffle className="w-4 h-4" />
+              Generar aleatorio
+            </button>
+            <button
+              onClick={() => setChatMode("ai")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                chatMode === "ai"
+                  ? "bg-primary/5 text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Bot className="w-4 h-4" />
+              Asistente IA
+            </button>
           </div>
-          <Button
-            onClick={() => generateMenu.mutate({})}
-            disabled={generateMenu.isPending}
-            className="rounded-xl px-5 gap-2 bg-primary hover:bg-primary/90 shrink-0"
-          >
-            {generateMenu.isPending ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
-            ) : (
-              <>🎲 Generar nuevo menú</>
-            )}
-          </Button>
+
+          {/* Random mode */}
+          {chatMode === "random" && (
+            <div className="p-5 flex items-center justify-between gap-4">
+              <div>
+                <p className="font-semibold text-foreground">¿Quieres un menú nuevo?</p>
+                <p className="text-sm text-muted-foreground">Genera un menú semanal aleatorio basado en tus recetas.</p>
+              </div>
+              <Button
+                onClick={() => generateMenu.mutate({})}
+                disabled={generateMenu.isPending}
+                className="rounded-xl px-5 gap-2 bg-primary hover:bg-primary/90 shrink-0"
+              >
+                {generateMenu.isPending ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
+                ) : (
+                  <>🎲 Generar nuevo menú</>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* AI Chat mode */}
+          {chatMode === "ai" && (
+            <div className="flex flex-col">
+              {/* API key warning */}
+              {!currentUser?.geminiApiKey && (
+                <div className="mx-4 mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
+                  <Settings className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Configura tu API Key de Gemini en los{" "}
+                    <strong>ajustes del perfil</strong> (icono ⚙️) para usar el asistente.
+                  </span>
+                </div>
+              )}
+
+              {/* Chat messages */}
+              <div className="h-64 overflow-y-auto px-4 py-3 flex flex-col gap-3">
+                {aiMessages.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+                    <MessageCircle className="w-8 h-8 opacity-30" />
+                    <p className="text-sm text-center">
+                      Dile al asistente cómo quieres el menú.<br />
+                      <span className="text-xs opacity-70">Ej: "pon solo segundos en la comida" o "sin carne los martes"</span>
+                    </p>
+                  </div>
+                )}
+                {aiMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    {msg.role === "assistant" && (
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mr-2 mt-0.5 shrink-0">
+                        <Bot className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-sm"
+                          : "bg-muted text-foreground rounded-bl-sm"
+                      }`}
+                    >
+                      {/* Hide raw JSON block in assistant messages */}
+                      {msg.role === "assistant"
+                        ? msg.content.replace(/<MENU>[\s\S]*?<\/MENU>/g, "").trim()
+                        : msg.content}
+                    </div>
+                  </div>
+                ))}
+                {aiLoading && (
+                  <div className="flex justify-start">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mr-2 mt-0.5 shrink-0">
+                      <Bot className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                    <div className="bg-muted rounded-2xl rounded-bl-sm px-3.5 py-2.5">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Apply menu button */}
+              {pendingAiMenu && (
+                <div className="mx-4 mb-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-300">
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    <span>El asistente ha generado un menú. ¿Aplicarlo?</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="rounded-lg bg-green-600 hover:bg-green-700 text-white shrink-0 gap-1.5"
+                    onClick={handleApplyAiMenu}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Aplicar menú
+                  </Button>
+                </div>
+              )}
+
+              {/* Input */}
+              <div className="px-4 pb-4 flex gap-2">
+                <Textarea
+                  placeholder="Escribe tus instrucciones para el menú..."
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAiSend();
+                    }
+                  }}
+                  className="rounded-xl resize-none text-sm min-h-[44px] max-h-24"
+                  rows={2}
+                  disabled={aiLoading}
+                />
+                <Button
+                  size="icon"
+                  className="rounded-xl h-auto py-2 px-3 bg-primary hover:bg-primary/90 shrink-0 self-end"
+                  onClick={handleAiSend}
+                  disabled={aiLoading || !aiInput.trim()}
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Menu Content */}

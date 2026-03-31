@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Utensils, CalendarDays, ShoppingBasket, ShoppingBag, Menu as MenuIcon } from "lucide-react";
+import { Utensils, CalendarDays, ShoppingBasket, ShoppingBag, Menu as MenuIcon, Settings } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useUser } from "@/contexts/UserContext";
 import { UserSelector } from "@/components/UserSelector";
+import { ProfileSettingsModal } from "@/components/ProfileSettingsModal";
 
 const NAV_ITEMS = [
   { href: "/", label: "Recetas", icon: Utensils },
@@ -18,6 +19,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const { currentUser } = useUser();
 
   const NavLinks = () => (
@@ -52,6 +54,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {showSwitcher && (
         <UserSelector mode="switcher" onClose={() => setShowSwitcher(false)} />
       )}
+      {showSettings && (
+        <ProfileSettingsModal onClose={() => setShowSettings(false)} />
+      )}
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-72 border-r border-border/50 bg-card/50 backdrop-blur-xl fixed inset-y-0 z-10 p-6">
         <div className="flex items-center gap-3 mb-10 px-2">
@@ -64,14 +69,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <NavLinks />
         </nav>
         {currentUser && (
-          <button
-            onClick={() => setShowSwitcher(true)}
-            className="flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-muted transition-colors mt-4"
-            title="Cambiar perfil"
-          >
-            <span className="text-2xl">{currentUser.avatar}</span>
-            <span className="font-medium text-sm text-foreground/80">{currentUser.name}</span>
-          </button>
+          <div className="flex items-center gap-1 mt-4">
+            <button
+              onClick={() => setShowSwitcher(true)}
+              className="flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-muted transition-colors flex-1 min-w-0"
+              title="Cambiar perfil"
+            >
+              <span className="text-2xl shrink-0">{currentUser.avatar}</span>
+              <span className="font-medium text-sm text-foreground/80 truncate">{currentUser.name}</span>
+            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl text-muted-foreground hover:text-foreground shrink-0"
+              onClick={() => setShowSettings(true)}
+              title="Configurar perfil"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          </div>
         )}
       </aside>
       {/* Mobile Header & Content */}
@@ -85,15 +101,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-1">
             {currentUser && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-xl text-xl"
-                onClick={() => setShowSwitcher(true)}
-                title="Cambiar perfil"
-              >
-                {currentUser.avatar}
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-xl text-xl"
+                  onClick={() => setShowSwitcher(true)}
+                  title="Cambiar perfil"
+                >
+                  {currentUser.avatar}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-xl"
+                  onClick={() => setShowSettings(true)}
+                  title="Configurar perfil"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </>
             )}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>

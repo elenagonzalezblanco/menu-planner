@@ -11,7 +11,7 @@ import { motion } from "framer-motion";
 export default function ShoppingPage() {
   const { data: menus = [] } = useMenus();
   const latestMenu = menus.length > 0 ? menus[0] : null;
-  const { data: shoppingList, isLoading } = useShoppingList(latestMenu?.id || 0);
+  const { data: shoppingList, isLoading } = useShoppingList(latestMenu?.id ?? '');
   const { items: extraItems, add: addExtra, remove: removeExtra } = useExtraIngredients(latestMenu?.id);
   const [, setLocation] = useLocation();
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
@@ -45,7 +45,7 @@ export default function ShoppingPage() {
   const apiItems = shoppingList?.items ?? [];
   const totalCount = apiItems.length + extraItems.length;
   const checkedCount = [...checkedItems].filter(i =>
-    apiItems.some(a => a.ingredient === i) || extraItems.includes(i)
+    apiItems.some((a: { ingredient: string }) => a.ingredient === i) || extraItems.includes(i)
   ).length;
 
   return (

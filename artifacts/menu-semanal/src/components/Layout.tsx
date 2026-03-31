@@ -4,6 +4,8 @@ import { Utensils, CalendarDays, ShoppingBasket, ShoppingBag, Menu as MenuIcon }
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useUser } from "@/contexts/UserContext";
+import { UserSelector } from "@/components/UserSelector";
 
 const NAV_ITEMS = [
   { href: "/", label: "Recetas", icon: Utensils },
@@ -15,6 +17,8 @@ const NAV_ITEMS = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [showSwitcher, setShowSwitcher] = useState(false);
+  const { currentUser } = useUser();
 
   const NavLinks = () => (
     <>
@@ -45,6 +49,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex w-full">
+      {showSwitcher && (
+        <UserSelector mode="switcher" onClose={() => setShowSwitcher(false)} />
+      )}
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-72 border-r border-border/50 bg-card/50 backdrop-blur-xl fixed inset-y-0 z-10 p-6">
         <div className="flex items-center gap-3 mb-10 px-2">
@@ -56,6 +63,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <nav className="flex flex-col gap-2 flex-1">
           <NavLinks />
         </nav>
+        {currentUser && (
+          <button
+            onClick={() => setShowSwitcher(true)}
+            className="flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-muted transition-colors mt-4"
+            title="Cambiar perfil"
+          >
+            <span className="text-2xl">{currentUser.avatar}</span>
+            <span className="font-medium text-sm text-foreground/80">{currentUser.name}</span>
+          </button>
+        )}
       </aside>
       {/* Mobile Header & Content */}
       <div className="flex-1 flex flex-col md:pl-72 w-full max-w-[100vw]">
@@ -66,7 +83,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <h1 className="font-display font-bold text-xl">La Cocina</h1>
           </div>
-          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <div className="flex items-center gap-1">
+            {currentUser && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl text-xl"
+                onClick={() => setShowSwitcher(true)}
+                title="Cambiar perfil"
+              >
+                {currentUser.avatar}
+              </Button>
+            )}
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-xl">
                 <MenuIcon className="w-6 h-6" />
@@ -84,6 +113,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </nav>
             </SheetContent>
           </Sheet>
+          </div>
         </header>
 
         <main className="flex-1 p-4 md:p-8 lg:p-10 mx-auto w-full max-w-7xl overflow-x-hidden">

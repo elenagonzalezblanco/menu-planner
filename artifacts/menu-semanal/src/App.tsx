@@ -4,6 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
+import { UserProvider, useUser } from "@/contexts/UserContext";
+import { UserSelector } from "@/components/UserSelector";
 
 // Pages
 import RecipesPage from "@/pages/Recipes";
@@ -34,14 +36,30 @@ function Router() {
   );
 }
 
+function AppShell() {
+  const { currentUser, isLoading } = useUser();
+
+  if (isLoading) return null;
+
+  if (!currentUser) {
+    return <UserSelector mode="splash" />;
+  }
+
+  return (
+    <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+      <Router />
+    </WouterRouter>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
+        <UserProvider>
+          <AppShell />
+          <Toaster />
+        </UserProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

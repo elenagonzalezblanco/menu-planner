@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import type { Recipe } from "@workspace/api-client-react";
+import type { Recipe } from "@/lib/recipes-storage";
 
 type Category = "primero" | "segundo" | "otro";
 
@@ -59,9 +59,9 @@ export default function RecipesPage() {
     return matchesSearch && matchesCat;
   });
 
-  const handleDelete = (id: number, name: string) => {
+  const handleDelete = (id: string, name: string) => {
     if (confirm(`¿Seguro que quieres borrar "${name}"?`)) {
-      deleteRecipe.mutate({ id }, {
+      deleteRecipe.mutate(id, {
         onSuccess: () => toast({ title: "Receta eliminada" }),
       });
     }
@@ -70,7 +70,7 @@ export default function RecipesPage() {
   const handleSave = (formData: RecipeFormState) => {
     if (editingRecipe) {
       updateRecipe.mutate(
-        { id: editingRecipe.id, data: { ...formData, instructions: formData.instructions || "" } },
+        { id: editingRecipe.id, input: { ...formData, instructions: formData.instructions || "" } },
         {
           onSuccess: () => {
             setEditingRecipe(null);
@@ -81,7 +81,7 @@ export default function RecipesPage() {
       );
     } else {
       createRecipe.mutate(
-        { data: { ...formData, instructions: formData.instructions || "" } },
+        { ...formData, instructions: formData.instructions || "" },
         {
           onSuccess: () => {
             setIsCreating(false);

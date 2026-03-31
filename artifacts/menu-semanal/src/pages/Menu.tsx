@@ -1,9 +1,8 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useMenus, useGenerateMenu } from "@/hooks/use-menus";
 import { useRecipes } from "@/hooks/use-recipes";
 import { useGenerateShoppingList } from "@/hooks/use-shopping";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Popover,
   PopoverContent,
@@ -29,15 +28,14 @@ import {
   Loader2,
   Printer,
   GripVertical,
-  Send,
-  Bot,
-  RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListMenusQueryKey, getGetShoppingListQueryKey } from "@workspace/api-client-react";
+import { menusQueryKey, shoppingQueryKey, getCurrentUserId } from "@/hooks/use-local-storage";
+import { storageGet, storageSet } from "@/lib/storage";
+import type { WeeklyMenu } from "@/lib/menus-storage";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -73,23 +71,11 @@ interface DayPlan {
   dinner: MealPlan;
 }
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  isLoading?: boolean;
-}
-
 function parseSlotId(id: string): { dayIdx: number; meal: MealType; slot: SlotType } | null {
   const parts = id.split(":");
   if (parts.length !== 3) return null;
   return { dayIdx: parseInt(parts[0]), meal: parts[1] as MealType, slot: parts[2] as SlotType };
 }
-
-const WELCOME_WITH_MENU =
-  "Tu menú está listo. Dime si quieres cambiar algo — puedo ajustar platos concretos, cambiar días enteros, añadir más pescado, quitar los primeros de la comida... lo que necesites.";
-
-const WELCOME_NO_MENU =
-  `Todavía no tienes ningún menú. Cuéntame cómo lo quieres y lo genero ahora — por ejemplo: "genera el menú de esta semana con más pescado y sin primero a mediodía".`;
 
 export default function MenuPage() {
   const { data: menus = [], isLoading } = useMenus();
@@ -97,6 +83,7 @@ export default function MenuPage() {
   const generateShopping = useGenerateShoppingList();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const generateMenu = useGenerateMenu();
   const [isEditing, setIsEditing] = useState(false);
   const [localDays, setLocalDays] = useState<DayPlan[] | null>(null);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
@@ -104,14 +91,7 @@ export default function MenuPage() {
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Chat state
-  const [chatInput, setChatInput] = useState("");
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [isChatLoading, setIsChatLoading] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const recipes = recipesData as Recipe[];
+  const recipes = recipesData as unknown as Recipe[];
   const latestMenu = menus.length > 0 ? menus[0] : null;
   const displayDays = (isEditing ? localDays : latestMenu?.days) as DayPlan[] | null | undefined;
 
@@ -119,30 +99,13 @@ export default function MenuPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  // Set welcome message when menu loads
-  useEffect(() => {
-    if (!isLoading && chatHistory.length === 0) {
-      setChatHistory([
-        { role: "assistant", content: latestMenu ? WELCOME_WITH_MENU : WELCOME_NO_MENU },
-      ]);
-    }
-  }, [isLoading, !!latestMenu]);
-
-  // Auto-scroll chat to bottom
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory]);
-
-  const handleCreateShoppingList = (menuId: number) => {
-    generateShopping.mutate(
-      { data: { menuId } },
-      {
-        onSuccess: () => {
-          toast({ title: "Lista generada", description: "Lista de compra consolidada." });
-          setLocation("/shopping");
-        },
-      }
-    );
+  const handleCreateShoppingList = (menuId: string) => {
+    generateShopping.mutate(menuId, {
+      onSuccess: () => {
+        toast({ title: "Lista generada", description: "Lista de compra consolidada." });
+        setLocation("/shopping");
+      },
+    });
   };
 
   const startEditing = () => {
@@ -159,13 +122,14 @@ export default function MenuPage() {
   const saveMenu = async (updatedDays: DayPlan[]) => {
     if (!latestMenu) return;
     try {
-      const res = await fetch(`/api/menus/${latestMenu.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: updatedDays }),
-      });
-      if (!res.ok) throw new Error("Error guardando");
-      await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
+      const userId = getCurrentUserId();
+      const menus = storageGet<WeeklyMenu[]>(userId, 'menus') ?? [];
+      const idx = menus.findIndex(m => m.id === String(latestMenu.id));
+      if (idx >= 0) {
+        menus[idx] = { ...menus[idx], days: updatedDays as any };
+        storageSet(userId, 'menus', menus);
+        await queryClient.invalidateQueries({ queryKey: menusQueryKey(userId) });
+      }
     } catch {
       toast({ title: "Error al guardar", variant: "destructive" });
     }
@@ -186,61 +150,6 @@ export default function MenuPage() {
     },
     [localDays, latestMenu]
   );
-
-  // ── Chat send ──
-  const sendMessage = async (text?: string) => {
-    const message = (text ?? chatInput).trim();
-    if (!message || isChatLoading) return;
-
-    setChatInput("");
-    const userMsg: ChatMessage = { role: "user", content: message };
-    const loadingMsg: ChatMessage = { role: "assistant", content: "", isLoading: true };
-    const historyForApi = chatHistory.filter(m => !m.isLoading);
-
-    setChatHistory(prev => [...prev, userMsg, loadingMsg]);
-    setIsChatLoading(true);
-
-    try {
-      const res = await fetch("/api/menus/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          history: historyForApi.map(m => ({ role: m.role, content: m.content })),
-          menuId: latestMenu?.id ?? undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error del agente");
-
-      const assistantMsg: ChatMessage = { role: "assistant", content: data.reply };
-
-      setChatHistory(prev => {
-        const withoutLoading = prev.filter(m => !m.isLoading);
-        return [...withoutLoading, assistantMsg];
-      });
-
-      // If the AI updated the menu, refresh it
-      if (data.updatedMenu) {
-        await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
-        if (isEditing) {
-          setLocalDays(data.updatedMenu.days);
-        }
-        toast({ title: "Menú actualizado", description: data.reply.slice(0, 80) });
-      }
-    } catch (err: any) {
-      setChatHistory(prev => {
-        const withoutLoading = prev.filter(m => !m.isLoading);
-        return [
-          ...withoutLoading,
-          { role: "assistant", content: `Lo siento, ha habido un error: ${err.message || "inténtalo de nuevo"}` },
-        ];
-      });
-    } finally {
-      setIsChatLoading(false);
-    }
-  };
 
   // ── Drag & Drop ──
   const handleDragStart = (event: DragStartEvent) => setActiveSlotId(event.active.id as string);
@@ -355,134 +264,23 @@ export default function MenuPage() {
           )}
         </AnimatePresence>
 
-        {/* ── CHAT PANEL ── */}
-        <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
-          {/* Chat header */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/50 bg-muted/30">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground text-sm">Agente de menú</p>
-                <p className="text-xs text-muted-foreground">
-                  {isChatLoading ? "Pensando..." : "Listo para ayudarte"}
-                </p>
-              </div>
-              {isChatLoading && <Loader2 className="w-3.5 h-3.5 text-primary animate-spin ml-1" />}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground gap-1.5 rounded-lg hover:text-foreground"
-              disabled={isChatLoading}
-              onClick={async () => {
-                if (latestMenu) {
-                  if (!confirm("¿Seguro? Esto borrará el menú, la lista de la compra y empezará desde cero.")) return;
-                  try {
-                    // Borrar TODOS los menús acumulados
-                    await fetch("/api/menus", { method: "DELETE" });
-                    // Limpiar todos los ingredientes manuales del localStorage
-                    Object.keys(localStorage)
-                      .filter(k => k.startsWith("extra-ingredients-"))
-                      .forEach(k => localStorage.removeItem(k));
-                    // Invalidar toda la caché
-                    await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
-                    queryClient.removeQueries({ queryKey: getGetShoppingListQueryKey(latestMenu.id) });
-                    if (isEditing) cancelEditing();
-                  } catch {
-                    toast({ title: "Error al borrar el menú", variant: "destructive" });
-                    return;
-                  }
-                }
-                setChatHistory([{ role: "assistant", content: WELCOME_NO_MENU }]);
-              }}
-              title="Nueva conversación"
-            >
-              <RotateCcw className="w-3 h-3" />
-              Nueva conversación
-            </Button>
+        {/* ── GENERATE MENU PANEL ── */}
+        <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-foreground">¿Quieres un menú nuevo?</p>
+            <p className="text-sm text-muted-foreground">Genera un menú semanal aleatorio basado en tus recetas.</p>
           </div>
-
-          {/* Chat messages */}
-          <div className="flex flex-col gap-3 px-5 py-4 overflow-y-auto" style={{ maxHeight: "340px" }}>
-            {chatHistory.map((msg, i) => (
-              <ChatBubble key={i} message={msg} />
-            ))}
-
-            {/* Suggestions (only after welcome message) */}
-            {chatHistory.length === 1 && chatHistory[0].role === "assistant" && !latestMenu && (
-              <div className="flex flex-wrap gap-2 mt-1">
-                {[
-                  "Genera el menú de esta semana",
-                  "Quiero más pescado esta semana",
-                  "Sin primero en la comida",
-                  "Menú con verduras y poca carne",
-                ].map(s => (
-                  <button
-                    key={s}
-                    onClick={() => sendMessage(s)}
-                    className="text-xs bg-primary/8 hover:bg-primary/15 text-primary border border-primary/20 rounded-full px-3 py-1.5 transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+          <Button
+            onClick={() => generateMenu.mutate({})}
+            disabled={generateMenu.isPending}
+            className="rounded-xl px-5 gap-2 bg-primary hover:bg-primary/90 shrink-0"
+          >
+            {generateMenu.isPending ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
+            ) : (
+              <>🎲 Generar nuevo menú</>
             )}
-
-            {chatHistory.length === 1 && chatHistory[0].role === "assistant" && latestMenu && (
-              <div className="flex flex-wrap gap-2 mt-1">
-                {[
-                  "Cambia el martes, quiero merluza",
-                  "Quita los primeros de la comida",
-                  "Más pescado esta semana",
-                  "El jueves pon algo ligero",
-                  "Regenera el menú completo",
-                ].map(s => (
-                  <button
-                    key={s}
-                    onClick={() => sendMessage(s)}
-                    className="text-xs bg-primary/8 hover:bg-primary/15 text-primary border border-primary/20 rounded-full px-3 py-1.5 transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Chat input */}
-          <div className="border-t border-border/50 px-4 py-3 flex gap-2 items-end bg-background/50">
-            <Textarea
-              ref={chatTextareaRef}
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-              placeholder="Escribe algo... ej. &quot;Pon merluza el martes de segundo&quot;, &quot;Sin primero a mediodía&quot;, &quot;Genera el menú&quot;"
-              className="min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm border-border/50 bg-background flex-1"
-              disabled={isChatLoading}
-              rows={1}
-            />
-            <Button
-              onClick={() => sendMessage()}
-              disabled={!chatInput.trim() || isChatLoading}
-              size="icon"
-              className="w-10 h-10 rounded-xl bg-primary hover:bg-primary/90 shrink-0"
-            >
-              {isChatLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
+          </Button>
         </div>
 
         {/* Menu Content */}
@@ -491,17 +289,17 @@ export default function MenuPage() {
             <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-6 text-primary">
               <CalendarDays className="w-12 h-12" />
             </div>
-            <h2 className="text-2xl font-display font-bold mb-3">Usa el chat para generar tu menú</h2>
+            <h2 className="text-2xl font-display font-bold mb-3">Genera tu menú semanal</h2>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Escribe en el chat de arriba cómo quieres el menú. Por ejemplo: "genera el menú de esta semana con más pescado y sin primero a mediodía".
+              Pulsa el botón para crear un menú equilibrado con tus recetas.
             </p>
             <Button
               size="lg"
-              onClick={() => sendMessage("Genera el menú de esta semana")}
-              disabled={isChatLoading}
+              onClick={() => generateMenu.mutate({})}
+              disabled={generateMenu.isPending}
               className="rounded-xl px-8 bg-primary hover:bg-primary/90"
             >
-              {isChatLoading ? (
+              {generateMenu.isPending ? (
                 <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Generando...</>
               ) : (
                 <>Generar menú ahora <ChevronRight className="ml-2 w-5 h-5" /></>
@@ -538,45 +336,12 @@ export default function MenuPage() {
       <AnimatePresence>
         {showPrint && latestMenu && (
           <PrintModal
-            days={(latestMenu.days ?? []) as DayPlan[]}
+            days={(latestMenu.days ?? []) as unknown as DayPlan[]}
             onClose={() => setShowPrint(false)}
           />
         )}
       </AnimatePresence>
     </>
-  );
-}
-
-// ── Chat bubble ──
-function ChatBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === "user";
-
-  return (
-    <div className={cn("flex gap-2.5 max-w-[88%]", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}>
-      {!isUser && (
-        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-          <Bot className="w-3.5 h-3.5 text-primary" />
-        </div>
-      )}
-      <div
-        className={cn(
-          "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-          isUser
-            ? "bg-primary text-white rounded-tr-sm"
-            : "bg-muted/60 text-foreground rounded-tl-sm"
-        )}
-      >
-        {message.isLoading ? (
-          <div className="flex gap-1 py-1 items-center">
-            <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
-            <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
-            <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
-          </div>
-        ) : (
-          message.content
-        )}
-      </div>
-    </div>
   );
 }
 

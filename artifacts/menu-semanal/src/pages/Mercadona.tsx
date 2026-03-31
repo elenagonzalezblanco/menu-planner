@@ -10,11 +10,11 @@ function mercadonaSearchUrl(ingredient: string) {
 export default function MercadonaPage() {
   const { data: menus = [] } = useMenus();
   const latestMenu = menus.length > 0 ? menus[0] : null;
-  const { data: shoppingList } = useShoppingList(latestMenu?.id || 0);
+  const { data: shoppingList } = useShoppingList(latestMenu?.id ?? '');
   const { items: extraItems } = useExtraIngredients(latestMenu?.id);
 
   const ingredients = [
-    ...(shoppingList?.items.map(i => i.ingredient) ?? []),
+    ...(shoppingList?.items.map((i: { ingredient: string }) => i.ingredient) ?? []),
     ...extraItems,
   ];
 

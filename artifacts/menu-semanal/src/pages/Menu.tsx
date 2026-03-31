@@ -4,6 +4,7 @@ import { useRecipes } from "@/hooks/use-recipes";
 import { useGenerateShoppingList } from "@/hooks/use-shopping";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -30,6 +31,8 @@ import {
   Printer,
   GripVertical,
   Mail,
+  Bookmark,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +41,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { menusQueryKey, shoppingQueryKey, getCurrentUserId } from "@/hooks/use-local-storage";
 import { storageGet, storageSet } from "@/lib/storage";
 import type { WeeklyMenu } from "@/lib/menus-storage";
+import { saveMenuToProfile, listSavedMenus, deleteSavedMenu, type SavedMenu } from "@/lib/menus-storage";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -92,6 +96,12 @@ export default function MenuPage() {
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
   const [showPrint, setShowPrint] = useState(false);
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveLabel, setSaveLabel] = useState("");
+  const [savedMenus, setSavedMenus] = useState<SavedMenu[]>(() => {
+    const uid = getCurrentUserId();
+    return uid ? listSavedMenus(uid) : [];
+  });
   const queryClient = useQueryClient();
 
   const recipes = recipesData as unknown as Recipe[];
@@ -122,6 +132,47 @@ export default function MenuPage() {
     });
     const body = encodeURIComponent(lines.join("\n"));
     const subject = encodeURIComponent("Menú Semanal");
+    const to = currentUser?.email ? encodeURIComponent(currentUser.email) : "";
+    window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");
+  };
+
+  const handleSaveMenu = () => {
+    if (!latestMenu || !displayDays) return;
+    const uid = getCurrentUserId();
+    if (!uid) return;
+    const label = saveLabel.trim() || `Menú del ${new Date().toLocaleDateString('es-ES')}`;
+    saveMenuToProfile(uid, displayDays as any, label);
+    setSavedMenus(listSavedMenus(uid));
+    setSaveLabel("");
+    setShowSaveDialog(false);
+    toast({ title: "Menú guardado", description: `"${label}" guardado en tu cuenta.` });
+  };
+
+  const handleDeleteSavedMenu = (id: string) => {
+    const uid = getCurrentUserId();
+    if (!uid) return;
+    deleteSavedMenu(uid, id);
+    setSavedMenus(listSavedMenus(uid));
+    toast({ title: "Menú eliminado" });
+  };
+
+  const sendSavedMenuByEmail = (menu: SavedMenu) => {
+    const days = menu.days as unknown as DayPlan[];
+    const lines: string[] = [`MENÚ: ${menu.label}`, "═".repeat(40), ""];
+    days.forEach((d) => {
+      lines.push(`📅 ${d.day.toUpperCase()}`);
+      const fmt = (meal: MealPlan | null | undefined, label: string) => {
+        if (!meal) return;
+        lines.push(`  ${label}:`);
+        if ((meal as any).primero) lines.push(`    Primero: ${(meal as any).primero.name}`);
+        if ((meal as any).segundo) lines.push(`    Segundo: ${(meal as any).segundo.name}`);
+      };
+      fmt(d.lunch, "Comida ☀️");
+      fmt(d.dinner, "Cena 🌙");
+      lines.push("");
+    });
+    const body = encodeURIComponent(lines.join("\n"));
+    const subject = encodeURIComponent(`Menú: ${menu.label}`);
     const to = currentUser?.email ? encodeURIComponent(currentUser.email) : "";
     window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");
   };
@@ -259,6 +310,14 @@ export default function MenuPage() {
                 </Button>
                 <Button
                   variant="outline"
+                  className="rounded-xl px-4 border-amber-500/30 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 gap-2"
+                  onClick={() => { setSaveLabel(`Menú del ${new Date().toLocaleDateString('es-ES')}`); setShowSaveDialog(true); }}
+                >
+                  <Bookmark className="w-4 h-4" />
+                  Guardar menú
+                </Button>
+                <Button
+                  variant="outline"
                   className="rounded-xl px-4 border-primary/20 text-primary hover:bg-primary/5"
                   onClick={() => handleCreateShoppingList(latestMenu.id)}
                   disabled={generateShopping.isPending}
@@ -376,6 +435,98 @@ export default function MenuPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Save Menu Dialog */}
+      <AnimatePresence>
+        {showSaveDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowSaveDialog(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card rounded-2xl p-6 w-full max-w-md shadow-xl border border-border/50 space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center text-amber-600">
+                  <Bookmark className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-foreground text-lg">Guardar menú</h2>
+                  <p className="text-sm text-muted-foreground">Se guardará en tu cuenta</p>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-muted-foreground">Nombre del menú</label>
+                <Input
+                  value={saveLabel}
+                  onChange={(e) => setSaveLabel(e.target.value)}
+                  placeholder={`Menú del ${new Date().toLocaleDateString('es-ES')}`}
+                  className="rounded-xl"
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveMenu()}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3 justify-end pt-1">
+                <Button variant="outline" className="rounded-xl" onClick={() => setShowSaveDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button className="rounded-xl gap-2 bg-amber-600 hover:bg-amber-700 text-white" onClick={handleSaveMenu}>
+                  <Bookmark className="w-4 h-4" />
+                  Guardar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Saved Menus Section */}
+      {savedMenus.length > 0 && (
+        <div className="mt-8 space-y-4">
+          <div className="flex items-center gap-2">
+            <Bookmark className="w-5 h-5 text-amber-600" />
+            <h2 className="text-xl font-display font-bold text-foreground">Menús guardados</h2>
+            <span className="text-sm text-muted-foreground ml-1">({savedMenus.length})</span>
+          </div>
+          <div className="space-y-3">
+            {savedMenus.map((sm) => (
+              <div key={sm.id} className="bg-card border border-border/50 rounded-2xl p-4 flex items-center justify-between gap-4 hover:shadow-sm transition-shadow">
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground truncate">{sm.label}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(sm.savedAt).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg gap-1.5 border-border/60"
+                    onClick={() => sendSavedMenuByEmail(sm)}
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    Enviar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteSavedMenu(sm.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }

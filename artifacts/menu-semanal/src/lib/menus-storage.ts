@@ -22,9 +22,17 @@ export interface WeeklyMenu {
   createdAt: string;
 }
 
+export interface SavedMenu {
+  id: string;
+  label: string;
+  days: DayMenu[];
+  savedAt: string;
+}
+
 // ── Storage helpers ──────────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'menus';
+const SAVED_MENUS_KEY = 'saved_menus';
 
 function getAll(userId: string): WeeklyMenu[] {
   return storageGet<WeeklyMenu[]>(userId, STORAGE_KEY) ?? [];
@@ -41,6 +49,29 @@ export function getMenu(userId: string, id: string): WeeklyMenu | null {
 export function deleteMenu(userId: string, id: string): void {
   const all = getAll(userId);
   storageSet(userId, STORAGE_KEY, all.filter(m => m.id !== id));
+}
+
+// ── Saved menus (explicit user saves) ───────────────────────────────────────
+
+export function listSavedMenus(userId: string): SavedMenu[] {
+  return storageGet<SavedMenu[]>(userId, SAVED_MENUS_KEY) ?? [];
+}
+
+export function saveMenuToProfile(userId: string, days: DayMenu[], label: string): SavedMenu {
+  const entry: SavedMenu = {
+    id: generateId(),
+    label: label.trim() || `Menú del ${new Date().toLocaleDateString('es-ES')}`,
+    days,
+    savedAt: new Date().toISOString(),
+  };
+  const all = listSavedMenus(userId);
+  storageSet(userId, SAVED_MENUS_KEY, [entry, ...all]);
+  return entry;
+}
+
+export function deleteSavedMenu(userId: string, id: string): void {
+  const all = listSavedMenus(userId);
+  storageSet(userId, SAVED_MENUS_KEY, all.filter(m => m.id !== id));
 }
 
 // ── Local generation algorithm ───────────────────────────────────────────────
@@ -243,5 +274,16 @@ export function generateMenu(
   const existing = getAll(userId);
   storageSet(userId, STORAGE_KEY, [menu, ...existing]);
 
+  return menu;
+}
+
+export function saveMenuPlan(userId: string, days: DayMenu[]): WeeklyMenu {
+  const menu: WeeklyMenu = {
+    id: generateId(),
+    days,
+    createdAt: new Date().toISOString(),
+  };
+  const existing = getAll(userId);
+  storageSet(userId, STORAGE_KEY, [menu, ...existing]);
   return menu;
 }

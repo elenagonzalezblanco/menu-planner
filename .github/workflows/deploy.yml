@@ -30,7 +30,7 @@ jobs:
         working-directory: artifacts/menu-semanal
         run: pnpm build
         env:
-          VITE_BASE_PATH: /menu-planner-v2/
+          VITE_BASE_PATH: /menu-planner/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: artifacts/menu-semanal/dist

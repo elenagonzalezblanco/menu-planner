@@ -268,6 +268,9 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown.`;
     // Enforce constraints programmatically (foolproof — the AI might make mistakes)
     menuDays = enforceConstraints(menuDays, constraints);
 
+    // Delete all existing menus for this user (keep only the new one)
+    await db.delete(weeklyMenusTable).where(eq(weeklyMenusTable.userId, req.user!.id));
+
     const [saved] = await db.insert(weeklyMenusTable).values({
       userId: req.user!.id,
       days: menuDays,

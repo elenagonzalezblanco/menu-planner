@@ -200,23 +200,12 @@ export default function MenuPage() {
   const handleAiSend = async () => {
     const text = aiInput.trim();
     if (!text || aiLoading) return;
-    const azureEndpoint = currentUser?.azureEndpoint || import.meta.env.VITE_AZURE_ENDPOINT;
-    const azureDeployment = currentUser?.azureDeployment || import.meta.env.VITE_AZURE_DEPLOYMENT || "gpt-4o";
-    const azureApiKey = currentUser?.azureApiKey || import.meta.env.VITE_AZURE_API_KEY;
-    if (!azureEndpoint || !azureApiKey) {
-      toast({
-        title: "Falta la configuración de Azure OpenAI",
-        description: "Configura el endpoint y la API Key en el icono ⚙️ de ajustes del perfil.",
-        variant: "destructive",
-      });
-      return;
-    }
     const newMessages: ChatMessage[] = [...aiMessages, { role: "user", content: text }];
     setAiMessages(newMessages);
     setAiInput("");
     setAiLoading(true);
     try {
-      const result = await chatWithMenuAgent(azureEndpoint, azureDeployment, azureApiKey, newMessages, recipes as any, currentUser?.id);
+      const result = await chatWithMenuAgent("", "", "", newMessages, recipes as any, currentUser?.id);
       setAiMessages([...newMessages, { role: "assistant", content: result.text }]);
       if (result.menu) {
         setPendingAiMenu(result.menu);
@@ -233,21 +222,71 @@ export default function MenuPage() {
     if (!pendingAiMenu) return;
     const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
     try {
-      const res = await fetch(`${API_URL}/api/menus`, {
+      // Delete existing menus first, then save the AI-generated one
+      if (latestMenu) {
+        await fetch(`${API_URL}/api/menus/${latestMenu.id}`, {
+          method: "DELETE",
+          headers: { "X-User-Id": String(currentUser?.id ?? "") },
+        });
+      }
+      // Save as new menu using generate endpoint with the AI days
+      const res = await fetch(`${API_URL}/api/menus/generate`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": String(currentUser?.id ?? ""),
+        },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error("Failed to generate placeholder");
+      const newMenu = await res.json();
+      // Now patch it with the AI days
+      const patchRes = await fetch(`${API_URL}/api/menus/${newMenu.id}`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           "X-User-Id": String(currentUser?.id ?? ""),
         },
         body: JSON.stringify({ days: pendingAiMenu }),
       });
-      if (!res.ok) throw new Error("Failed to save menu");
+      if (!patchRes.ok) throw new Error("Failed to save AI menu");
       await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
       setPendingAiMenu(null);
+      setAiMessages([]);
       toast({ title: "¡Menú aplicado!", description: "El menú del asistente IA está listo." });
     } catch {
       toast({ title: "Error al guardar el menú", variant: "destructive" });
     }
+  };
+
+  const handleDeleteMenu = async () => {
+    if (!latestMenu) return;
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      await fetch(`${API_URL}/api/menus/${latestMenu.id}`, {
+        method: "DELETE",
+        headers: { "X-User-Id": String(currentUser?.id ?? "") },
+      });
+      await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
+      setIsEditing(false);
+      setLocalDays(null);
+      setAiMessages([]);
+      setPendingAiMenu(null);
+      toast({ title: "Menú eliminado" });
+    } catch {
+      toast({ title: "Error al eliminar", variant: "destructive" });
+    }
+  };
+
+  const handleRegenerate = () => {
+    generateMenu.mutate({ data: {} }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
+        setAiMessages([]);
+        setPendingAiMenu(null);
+        toast({ title: "¡Nuevo menú generado!" });
+      },
+    });
   };
 
   const handleCreateShoppingList = (menuId: number) => {    generateShopping.mutate({ data: { menuId } }, {
@@ -400,6 +439,23 @@ export default function MenuPage() {
                   <ShoppingBasket className="w-4 h-4 mr-1.5" />
                   {generateShopping.isPending ? "Generando..." : "Lista de Compra"}
                 </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-xl px-4 border-blue-500/30 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 gap-2"
+                  onClick={handleRegenerate}
+                  disabled={generateMenu.isPending}
+                >
+                  <Shuffle className="w-4 h-4" />
+                  {generateMenu.isPending ? "Generando..." : "Regenerar"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-xl px-4 border-red-500/30 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 gap-2"
+                  onClick={handleDeleteMenu}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Borrar menú
+                </Button>
               </>
             )}
             {isEditing && (
@@ -485,16 +541,7 @@ export default function MenuPage() {
           {/* AI Chat mode */}
           {chatMode === "ai" && (
             <div className="flex flex-col">
-              {/* API key warning — solo si tampoco hay env vars configurados */}
-              {(!currentUser?.azureEndpoint || !currentUser?.azureApiKey) && (!import.meta.env.VITE_AZURE_ENDPOINT || !import.meta.env.VITE_AZURE_API_KEY) && (
-                <div className="mx-4 mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
-                  <Settings className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>
-                    Configura tu endpoint y API Key de Azure OpenAI en los{" "}
-                    <strong>ajustes del perfil</strong> (icono ⚙️) para usar el asistente.
-                  </span>
-                </div>
-              )}
+
 
               {/* Chat messages */}
               <div className="h-64 overflow-y-auto px-4 py-3 flex flex-col gap-3">

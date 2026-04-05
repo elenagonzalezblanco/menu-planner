@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { chatWithMenuAgent, type ChatMessage } from "@/services/ai-menu";
-import type { DayMenu } from "@workspace/api-client-react";
 import {
   Popover,
   PopoverContent,
@@ -23,7 +22,6 @@ import {
 } from "@/components/ui/command";
 import {
   CalendarDays,
-  Sparkles,
   ShoppingBasket,
   ChevronRight,
   Pencil,
@@ -114,7 +112,7 @@ export default function MenuPage() {
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>([]);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const [pendingAiMenu, setPendingAiMenu] = useState<DayMenu[] | null>(null);
+  const [pendingAiMenu, setPendingAiMenu] = useState<any | null>(null); // kept for cleanup refs
   const chatEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -205,57 +203,18 @@ export default function MenuPage() {
     setAiInput("");
     setAiLoading(true);
     try {
-      const result = await chatWithMenuAgent("", "", "", newMessages, recipes as any, currentUser?.id);
-      setAiMessages([...newMessages, { role: "assistant", content: result.text }]);
-      if (result.menu) {
-        setPendingAiMenu(result.menu);
+      const result = await chatWithMenuAgent(newMessages, latestMenu?.id, currentUser?.id);
+      setAiMessages([...newMessages, { role: "assistant", content: result.reply }]);
+      if (result.updatedMenu) {
+        // Backend already saved the menu — just refresh
+        await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
+        toast({ title: "✅ Menú actualizado", description: "El asistente ha modificado el menú." });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setAiMessages([...newMessages, { role: "assistant", content: `⚠️ ${msg}` }]);
     } finally {
       setAiLoading(false);
-    }
-  };
-
-  const handleApplyAiMenu = async () => {
-    if (!pendingAiMenu) return;
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-    try {
-      // Delete existing menus first, then save the AI-generated one
-      if (latestMenu) {
-        await fetch(`${API_URL}/api/menus/${latestMenu.id}`, {
-          method: "DELETE",
-          headers: { "X-User-Id": String(currentUser?.id ?? "") },
-        });
-      }
-      // Save as new menu using generate endpoint with the AI days
-      const res = await fetch(`${API_URL}/api/menus/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": String(currentUser?.id ?? ""),
-        },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) throw new Error("Failed to generate placeholder");
-      const newMenu = await res.json();
-      // Now patch it with the AI days
-      const patchRes = await fetch(`${API_URL}/api/menus/${newMenu.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": String(currentUser?.id ?? ""),
-        },
-        body: JSON.stringify({ days: pendingAiMenu }),
-      });
-      if (!patchRes.ok) throw new Error("Failed to save AI menu");
-      await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
-      setPendingAiMenu(null);
-      setAiMessages([]);
-      toast({ title: "¡Menú aplicado!", description: "El menú del asistente IA está listo." });
-    } catch {
-      toast({ title: "Error al guardar el menú", variant: "destructive" });
     }
   };
 
@@ -590,24 +549,6 @@ export default function MenuPage() {
                 )}
                 <div ref={chatEndRef} />
               </div>
-
-              {/* Apply menu button */}
-              {pendingAiMenu && (
-                <div className="mx-4 mb-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-300">
-                    <Sparkles className="w-4 h-4 shrink-0" />
-                    <span>El asistente ha generado un menú. ¿Aplicarlo?</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="rounded-lg bg-green-600 hover:bg-green-700 text-white shrink-0 gap-1.5"
-                    onClick={handleApplyAiMenu}
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    Aplicar menú
-                  </Button>
-                </div>
-              )}
 
               {/* Input */}
               <div className="px-4 pb-4 flex gap-2">

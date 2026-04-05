@@ -24,7 +24,7 @@ router.post("/shopping-list/generate", async (req: AuthenticatedRequest, res) =>
       const meals = [day.lunch?.primero, day.lunch?.segundo, day.dinner?.primero, day.dinner?.primero2, day.dinner?.segundo, day.dinner?.segundo2];
       for (const meal of meals) {
         if (!meal?.id) continue;
-        const recipe = recipeMap.get(meal.id);
+        const recipe = recipeMap.get(Number(meal.id));
         if (!recipe) continue;
         for (const ing of (recipe.ingredients ?? [])) {
           const normalized = ing.trim().toLowerCase();
@@ -70,7 +70,7 @@ router.get("/shopping-list/:menuId", async (req: AuthenticatedRequest, res) => {
       const meals = [day.lunch?.primero, day.lunch?.segundo, day.dinner?.primero, day.dinner?.primero2, day.dinner?.segundo, day.dinner?.segundo2];
       for (const meal of meals) {
         if (!meal?.id) continue;
-        const recipe = recipeMap.get(meal.id);
+        const recipe = recipeMap.get(Number(meal.id));
         if (!recipe) continue;
         for (const ing of (recipe.ingredients ?? [])) {
           const normalized = ing.trim().toLowerCase();

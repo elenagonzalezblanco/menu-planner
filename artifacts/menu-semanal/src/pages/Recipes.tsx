@@ -335,7 +335,7 @@ function RecipeDialog({ open, onOpenChange, title, initialValues, isPending, onS
     onSave({ name: name.trim(), category, ingredients, instructions });
   };
 
-  const isValid = name.trim().length >= 2 && ingredients.length > 0;
+  const isValid = name.trim().length >= 2;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

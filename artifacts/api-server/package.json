@@ -18,12 +18,14 @@
     "openai": "^6.32.0",
     "pino": "^9",
     "pino-http": "^10",
+    "resend": "^6.10.0"
+  },
+  "optionalDependencies": {
     "playwright": "^1.58.2",
     "playwright-core": "^1.58.2",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "resend": "^6.10.0"
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

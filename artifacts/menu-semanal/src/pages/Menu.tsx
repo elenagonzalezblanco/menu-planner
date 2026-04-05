@@ -216,7 +216,7 @@ export default function MenuPage() {
     setAiInput("");
     setAiLoading(true);
     try {
-      const result = await chatWithMenuAgent(azureEndpoint, azureDeployment, azureApiKey, newMessages, recipes as any);
+      const result = await chatWithMenuAgent(azureEndpoint, azureDeployment, azureApiKey, newMessages, recipes as any, currentUser?.id);
       setAiMessages([...newMessages, { role: "assistant", content: result.text }]);
       if (result.menu) {
         setPendingAiMenu(result.menu);

@@ -6,6 +6,7 @@ import menusRouter from "./menus";
 import shoppingRouter from "./shopping";
 import mercadonaRouter from "./mercadona";
 import emailRouter from "./email";
+import aiChatRouter from "./ai-chat";
 import { requireUser } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -21,5 +22,6 @@ router.use(menusRouter);
 router.use(shoppingRouter);
 router.use(mercadonaRouter);
 router.use(emailRouter);
+router.use(aiChatRouter);
 
 export default router;

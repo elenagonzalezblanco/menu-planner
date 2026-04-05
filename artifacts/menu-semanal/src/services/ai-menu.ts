@@ -66,47 +66,35 @@ REGLAS para el JSON:
 }
 
 export async function chatWithMenuAgent(
-  azureEndpoint: string,
-  azureDeployment: string,
-  azureApiKey: string,
+  _azureEndpoint: string,
+  _azureDeployment: string,
+  _azureApiKey: string,
   messages: ChatMessage[],
   recipes: Recipe[],
+  userId?: number,
 ): Promise<{ text: string; menu?: DayMenu[] }> {
   const systemPrompt = buildSystemPrompt(recipes);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-  // Normalize endpoint: remove trailing slash
-  const base = azureEndpoint.replace(/\/$/, '');
-  const url = `${base}/openai/deployments/${azureDeployment}/chat/completions?api-version=2024-02-01`;
-
-  const body = {
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...messages.map((m) => ({ role: m.role, content: m.content })),
-    ],
-    temperature: 0.7,
-    max_tokens: 4096,
-  };
-
-  const res = await fetch(url, {
+  const res = await fetch(`${API_URL}/api/ai/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${azureApiKey}`,
+      ...(userId ? { 'X-User-Id': String(userId) } : {}),
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      systemPrompt,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    }),
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    let friendlyError = `Error de Azure OpenAI (${res.status}).`;
-    if (res.status === 401) friendlyError = 'Clave de API inválida. Comprueba que es correcta.';
-    if (res.status === 404) friendlyError = 'Endpoint o deployment no encontrado. Revisa la URL y el nombre del deployment.';
-    if (res.status === 429) friendlyError = 'Has superado el límite de peticiones. Espera un momento.';
-    throw new Error(`${friendlyError} Detalle: ${errText.slice(0, 200)}`);
+    const errData = await res.json().catch(() => ({ error: `Error ${res.status}` }));
+    throw new Error(errData.error || `Error del servidor (${res.status})`);
   }
 
   const data = await res.json();
-  const text: string = data.choices?.[0]?.message?.content ?? '';
+  const text: string = data.text ?? '';
 
   // Try to parse embedded menu JSON
   const menuMatch = text.match(/<MENU>([\s\S]*?)<\/MENU>/);

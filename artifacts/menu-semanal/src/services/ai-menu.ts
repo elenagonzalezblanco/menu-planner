@@ -1,5 +1,5 @@
-import type { Recipe } from '@/lib/recipes-storage';
-import type { DayMenu } from '@/lib/menus-storage';
+import type { Recipe } from '@workspace/api-client-react';
+import type { DayMenu } from '@workspace/api-client-react';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -91,7 +91,7 @@ export async function chatWithMenuAgent(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'api-key': azureApiKey,
+      'Authorization': `Bearer ${azureApiKey}`,
     },
     body: JSON.stringify(body),
   });

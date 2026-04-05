@@ -1,1 +1,4 @@
-export { useShoppingList, useGenerateShoppingList } from "./use-local-storage";
+export {
+  useGetShoppingList as useShoppingList,
+  useGenerateShoppingList,
+} from "@workspace/api-client-react";

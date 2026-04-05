@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 export default function ShoppingPage() {
   const { data: menus = [] } = useMenus();
   const latestMenu = menus.length > 0 ? menus[0] : null;
-  const { data: shoppingList, isLoading } = useShoppingList(latestMenu?.id ?? '');
+  const { data: shoppingList, isLoading } = useShoppingList(latestMenu?.id ?? 0);
   const { items: extraItems, add: addExtra, remove: removeExtra } = useExtraIngredients(latestMenu?.id);
   const { currentUser } = useUser();
   const [, setLocation] = useLocation();
@@ -35,22 +35,29 @@ export default function ShoppingPage() {
     inputRef.current?.focus();
   };
 
-  const sendShoppingByEmail = () => {
-    const apiItems = shoppingList?.items ?? [];
-    const lines: string[] = ["LISTA DE LA COMPRA", "═".repeat(40), ""];
-    apiItems.forEach((item: { ingredient: string; recipes: string[] }) => {
-      lines.push(`• ${item.ingredient}`);
-      if (item.recipes.length > 0) {
-        lines.push(`  (${item.recipes.join(", ")})`);
+  const sendShoppingByEmail = async () => {
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      const res = await fetch(`${API_URL}/api/email/shopping`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": String(currentUser?.id ?? ""),
+        },
+        body: JSON.stringify({
+          items: shoppingList?.items ?? [],
+          extraItems,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Error al enviar");
       }
-    });
-    if (extraItems.length > 0) {
-      lines.push("", "Añadidos a mano:", ...extraItems.map((i: string) => `• ${i}`));
+      alert("Email enviado con la lista de la compra");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error";
+      alert(msg);
     }
-    const body = encodeURIComponent(lines.join("\n"));
-    const subject = encodeURIComponent("Lista de la Compra");
-    const to = currentUser?.email ? encodeURIComponent(currentUser.email) : "";
-    window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");
   };
 
   if (!latestMenu) {

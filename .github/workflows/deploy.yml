@@ -31,6 +31,7 @@ jobs:
         run: pnpm build
         env:
           VITE_BASE_PATH: /menu-planner/
+          VITE_API_URL: ${{ secrets.API_URL }}
           VITE_AZURE_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
           VITE_AZURE_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
           VITE_AZURE_API_KEY: ${{ secrets.AZURE_OPENAI_KEY }}

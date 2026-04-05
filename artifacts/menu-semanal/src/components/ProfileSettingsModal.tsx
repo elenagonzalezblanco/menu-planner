@@ -20,9 +20,9 @@ export function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
   const [azureDeployment, setAzureDeployment] = useState(currentUser?.azureDeployment ?? "gpt-4o");
   const [azureApiKey, setAzureApiKey] = useState(currentUser?.azureApiKey ?? "");
 
-  function handleSave() {
+  async function handleSave() {
     if (!currentUser) return;
-    updateUser(currentUser.id, {
+    await updateUser(currentUser.id, {
       email: email.trim() || undefined,
       mercadonaEmail: mercadonaEmail.trim() || undefined,
       azureEndpoint: azureEndpoint.trim() || undefined,

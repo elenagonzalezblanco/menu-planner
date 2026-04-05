@@ -1,9 +1,11 @@
-import { pgTable, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export const weeklyMenusTable = pgTable("weekly_menus", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
   days: jsonb("days").notNull().$type<WeeklyMenuDay[]>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

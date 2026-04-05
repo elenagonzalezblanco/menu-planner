@@ -14,7 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useUser } from "@/contexts/UserContext";
-import type { User } from "@/lib/users-storage";
+import type { User } from "@/contexts/UserContext";
 
 const EMOJI_OPTIONS = [
   "👩‍🍳", "👨‍🍳", "🍽️", "🥘", "🍲", "🥗",
@@ -33,9 +33,9 @@ function CreateForm({ onCreated, onCancel, showCancel }: CreateFormProps) {
   const [email, setEmail] = useState("");
   const [avatar, setAvatar] = useState(EMOJI_OPTIONS[0]);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!name.trim()) return;
-    const user = createUser(name.trim(), avatar, email.trim() || undefined);
+    const user = await createUser(name.trim(), avatar, email.trim() || undefined);
     setCurrentUser(user.id);
     onCreated(user);
   }
@@ -111,7 +111,7 @@ export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
   const { allUsers, setCurrentUser, deleteUser } = useUser();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  function handleSelectUser(id: string) {
+  function handleSelectUser(id: number) {
     setCurrentUser(id);
     onClose?.();
   }

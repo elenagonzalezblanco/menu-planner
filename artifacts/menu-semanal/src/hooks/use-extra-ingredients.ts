@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 
-const storageKey = (menuId: string) => `extra-ingredients-${menuId}`;
+const storageKey = (menuId: string | number) => `extra-ingredients-${menuId}`;
 
-export function useExtraIngredients(menuId: string | null | undefined) {
+export function useExtraIngredients(menuId: string | number | null | undefined) {
   const [items, setItems] = useState<string[]>([]);
 
   useEffect(() => {

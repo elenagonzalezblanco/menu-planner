@@ -17,6 +17,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _userIdGetter: (() => number | null) | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -39,6 +40,15 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Register a getter that supplies the current user ID.  Before every fetch
+ * the getter is invoked; when it returns a non-null number, an
+ * `X-User-Id: <id>` header is attached to the request.
+ */
+export function setUserIdGetter(getter: (() => number | null) | null): void {
+  _userIdGetter = getter;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -352,6 +362,14 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  // Attach user ID header when a getter is configured.
+  if (_userIdGetter && !headers.has("x-user-id")) {
+    const userId = _userIdGetter();
+    if (userId != null) {
+      headers.set("x-user-id", String(userId));
     }
   }
 

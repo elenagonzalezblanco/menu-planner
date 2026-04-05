@@ -1,17 +1,20 @@
 import { Router, type IRouter } from "express";
 import { db, recipesTable, weeklyMenusTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { GenerateShoppingListBody, GetShoppingListParams } from "@workspace/api-zod";
+import type { AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-router.post("/shopping-list/generate", async (req, res) => {
+router.post("/shopping-list/generate", async (req: AuthenticatedRequest, res) => {
   try {
     const body = GenerateShoppingListBody.parse(req.body);
-    const [menu] = await db.select().from(weeklyMenusTable).where(eq(weeklyMenusTable.id, body.menuId));
-    if (!menu) return res.status(404).json({ error: "Menu not found" });
+    const userId = req.user!.id;
+    const [menu] = await db.select().from(weeklyMenusTable)
+      .where(and(eq(weeklyMenusTable.id, body.menuId), eq(weeklyMenusTable.userId, userId)));
+    if (!menu) { res.status(404).json({ error: "Menu not found" }); return; }
 
-    const allRecipes = await db.select().from(recipesTable);
+    const allRecipes = await db.select().from(recipesTable).where(eq(recipesTable.userId, userId));
     const recipeMap = new Map(allRecipes.map(r => [r.id, r]));
 
     const ingredientMap = new Map<string, Set<string>>();
@@ -49,13 +52,15 @@ router.post("/shopping-list/generate", async (req, res) => {
   }
 });
 
-router.get("/shopping-list/:menuId", async (req, res) => {
+router.get("/shopping-list/:menuId", async (req: AuthenticatedRequest, res) => {
   try {
-    const { menuId } = GetShoppingListParams.parse({ menuId: parseInt(req.params.menuId) });
-    const [menu] = await db.select().from(weeklyMenusTable).where(eq(weeklyMenusTable.id, menuId));
-    if (!menu) return res.status(404).json({ error: "Menu not found" });
+    const { menuId } = GetShoppingListParams.parse({ menuId: parseInt(req.params.menuId as string) });
+    const userId = req.user!.id;
+    const [menu] = await db.select().from(weeklyMenusTable)
+      .where(and(eq(weeklyMenusTable.id, menuId), eq(weeklyMenusTable.userId, userId)));
+    if (!menu) { res.status(404).json({ error: "Menu not found" }); return; }
 
-    const allRecipes = await db.select().from(recipesTable);
+    const allRecipes = await db.select().from(recipesTable).where(eq(recipesTable.userId, userId));
     const recipeMap = new Map(allRecipes.map(r => [r.id, r]));
 
     const ingredientMap = new Map<string, Set<string>>();

@@ -1,17 +1,67 @@
 import { Router, type IRouter } from "express";
 import { db, recipesTable, weeklyMenusTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import OpenAI from "openai";
 import { GenerateMenuBody, GetMenuParams } from "@workspace/api-zod";
+import type { AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+type DayMenu = {
+  day: string;
+  lunch: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null };
+  dinner: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null };
+};
+
+function getOpenAI() {
+  return new OpenAI({
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? "not-set",
+  });
+}
 
 const DAYS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+// ── Deterministic menu generation (no AI needed) ──
+function generateMenuDeterministic(
+  recipes: { id: number; name: string; category: string }[],
+  daysCount: number,
+): DayMenu[] {
+  const primeros = recipes.filter(r => r.category === "primero");
+  const segundos = recipes.filter(r => r.category === "segundo" || r.category === "otro");
+
+  function shuffle<T>(arr: T[]): T[] {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  const shuffledPrimeros = shuffle(primeros);
+  const shuffledSegundos = shuffle(segundos);
+  let pi = 0, si = 0;
+
+  function pickPrimero() {
+    if (primeros.length === 0) return null;
+    const r = shuffledPrimeros[pi % shuffledPrimeros.length];
+    pi++;
+    return { id: r.id, name: r.name };
+  }
+  function pickSegundo() {
+    if (segundos.length === 0) return null;
+    const r = shuffledSegundos[si % shuffledSegundos.length];
+    si++;
+    return { id: r.id, name: r.name };
+  }
+
+  return DAYS_ES.slice(0, daysCount).map(day => ({
+    day,
+    lunch: { primero: pickPrimero(), segundo: pickSegundo() },
+    dinner: { primero: Math.random() > 0.5 ? pickPrimero() : null, segundo: pickSegundo() },
+  }));
+}
 
 // ── Historical preferences learned from the user's 5-week calendar ──
 const HISTORICAL_CONTEXT = `
@@ -99,12 +149,6 @@ function parseConstraints(text: string) {
   return { noLunchPrimero, noDinnerPrimero, noAnywhere, noFishAtLunch, noFishAtDinner };
 }
 
-type DayMenu = {
-  day: string;
-  lunch: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null };
-  dinner: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null };
-};
-
 function enforceConstraints(
   days: DayMenu[],
   c: ReturnType<typeof parseConstraints>
@@ -145,14 +189,15 @@ function buildConstraintSummary(c: ReturnType<typeof parseConstraints>): string 
 }
 
 
-router.post("/menus/generate", async (req, res) => {
+router.post("/menus/generate", async (req: AuthenticatedRequest, res) => {
   try {
     const body = GenerateMenuBody.parse(req.body);
+    const userId = req.user!.id;
     const daysCount = body.daysCount ?? 7;
     const preferences = body.preferences ?? "";
     const excludeIds = body.excludeRecipes ?? [];
 
-    const allRecipes = await db.select().from(recipesTable);
+    const allRecipes = await db.select().from(recipesTable).where(eq(recipesTable.userId, userId));
     const available = allRecipes.filter(r => !excludeIds.includes(r.id));
     const recipeList = available.map(r => `[${r.id}] ${r.name} (${r.category})`).join("\n");
 
@@ -196,24 +241,36 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown.`;
       .filter(l => l !== null)
       .join("\n");
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-    });
+    let menuDays: DayMenu[];
 
-    let menuData = JSON.parse(completion.choices[0].message.content ?? "{}");
-
-    // Enforce constraints programmatically (foolproof — the AI might make mistakes)
-    if (menuData.days && Array.isArray(menuData.days)) {
-      menuData.days = enforceConstraints(menuData.days, constraints);
+    // Try AI generation first; fall back to deterministic if no key or error
+    const hasAiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_API_KEY !== "not-set";
+    if (hasAiKey) {
+      try {
+        const completion = await getOpenAI().chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          response_format: { type: "json_object" },
+        });
+        const parsed = JSON.parse(completion.choices[0].message.content ?? "{}");
+        menuDays = parsed.days ?? [];
+      } catch (aiErr) {
+        console.warn("AI generation failed, using deterministic fallback:", aiErr);
+        menuDays = generateMenuDeterministic(available, daysCount);
+      }
+    } else {
+      menuDays = generateMenuDeterministic(available, daysCount);
     }
 
+    // Enforce constraints programmatically (foolproof — the AI might make mistakes)
+    menuDays = enforceConstraints(menuDays, constraints);
+
     const [saved] = await db.insert(weeklyMenusTable).values({
-      days: menuData.days ?? [],
+      userId: req.user!.id,
+      days: menuDays,
     }).returning();
 
     const enriched = await enrichMenuWithRecipes(saved, available);
@@ -224,10 +281,13 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown.`;
   }
 });
 
-router.get("/menus", async (_req, res) => {
+router.get("/menus", async (req: AuthenticatedRequest, res) => {
   try {
-    const allRecipes = await db.select().from(recipesTable);
-    const menus = await db.select().from(weeklyMenusTable).orderBy(weeklyMenusTable.createdAt);
+    const userId = req.user!.id;
+    const allRecipes = await db.select().from(recipesTable).where(eq(recipesTable.userId, userId));
+    const menus = await db.select().from(weeklyMenusTable)
+      .where(eq(weeklyMenusTable.userId, userId))
+      .orderBy(weeklyMenusTable.createdAt);
     const enriched = await Promise.all(menus.map(m => enrichMenuWithRecipes(m, allRecipes)));
     res.json(enriched.reverse());
   } catch (err) {
@@ -235,11 +295,12 @@ router.get("/menus", async (_req, res) => {
   }
 });
 
-router.get("/menus/:id", async (req, res) => {
+router.get("/menus/:id", async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = GetMenuParams.parse(req.params);
-    const [menu] = await db.select().from(weeklyMenusTable).where(eq(weeklyMenusTable.id, id));
-    if (!menu) return res.status(404).json({ error: "Menu not found" });
+    const [menu] = await db.select().from(weeklyMenusTable)
+      .where(and(eq(weeklyMenusTable.id, id), eq(weeklyMenusTable.userId, req.user!.id)));
+    if (!menu) { res.status(404).json({ error: "Menu not found" }); return; }
     const allRecipes = await db.select().from(recipesTable);
     const enriched = await enrichMenuWithRecipes(menu, allRecipes);
     res.json(enriched);
@@ -248,17 +309,17 @@ router.get("/menus/:id", async (req, res) => {
   }
 });
 
-router.patch("/menus/:id", async (req, res) => {
+router.patch("/menus/:id", async (req: AuthenticatedRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     const { days } = req.body;
     const [updated] = await db
       .update(weeklyMenusTable)
       .set({ days })
-      .where(eq(weeklyMenusTable.id, id))
+      .where(and(eq(weeklyMenusTable.id, id), eq(weeklyMenusTable.userId, req.user!.id)))
       .returning();
-    if (!updated) return res.status(404).json({ error: "Menu not found" });
+    if (!updated) { res.status(404).json({ error: "Menu not found" }); return; }
     const allRecipes = await db.select().from(recipesTable);
     const enriched = await enrichMenuWithRecipes(updated, allRecipes);
     res.json(enriched);
@@ -267,24 +328,24 @@ router.patch("/menus/:id", async (req, res) => {
   }
 });
 
-router.delete("/menus/:id", async (req, res) => {
+router.delete("/menus/:id", async (req: AuthenticatedRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     const [deleted] = await db
       .delete(weeklyMenusTable)
-      .where(eq(weeklyMenusTable.id, id))
+      .where(and(eq(weeklyMenusTable.id, id), eq(weeklyMenusTable.userId, req.user!.id)))
       .returning();
-    if (!deleted) return res.status(404).json({ error: "Menu not found" });
+    if (!deleted) { res.status(404).json({ error: "Menu not found" }); return; }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
 });
 
-router.delete("/menus", async (_req, res) => {
+router.delete("/menus", async (req: AuthenticatedRequest, res) => {
   try {
-    await db.delete(weeklyMenusTable);
+    await db.delete(weeklyMenusTable).where(eq(weeklyMenusTable.userId, req.user!.id));
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -292,17 +353,18 @@ router.delete("/menus", async (_req, res) => {
 });
 
 // ── Chat / Agent endpoint ──
-router.post("/menus/chat", async (req, res) => {
+router.post("/menus/chat", async (req: AuthenticatedRequest, res) => {
   try {
+    const userId = req.user!.id;
     const { message, history = [], menuId } = req.body as {
       message: string;
       history: { role: "user" | "assistant"; content: string }[];
       menuId?: number;
     };
 
-    if (!message?.trim()) return res.status(400).json({ error: "Message required" });
+    if (!message?.trim()) { res.status(400).json({ error: "Message required" }); return; }
 
-    const allRecipes = await db.select().from(recipesTable);
+    const allRecipes = await db.select().from(recipesTable).where(eq(recipesTable.userId, userId));
     const recipeList = allRecipes.map(r => `[ID:${r.id}] ${r.name} (${r.category})`).join("\n");
 
     // Get current menu if provided
@@ -378,7 +440,7 @@ Cuando hay cambios:
       { role: "user", content: message },
     ];
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages,
       response_format: { type: "json_object" },
@@ -408,11 +470,11 @@ Cuando hay cambios:
         const [updated] = await db
           .update(weeklyMenusTable)
           .set({ days })
-          .where(eq(weeklyMenusTable.id, menuId))
+          .where(and(eq(weeklyMenusTable.id, menuId), eq(weeklyMenusTable.userId, userId)))
           .returning();
         if (updated) updatedMenu = await enrichMenuWithRecipes(updated, allRecipes);
       } else {
-        const [created] = await db.insert(weeklyMenusTable).values({ days }).returning();
+        const [created] = await db.insert(weeklyMenusTable).values({ userId, days }).returning();
         updatedMenu = await enrichMenuWithRecipes(created, allRecipes);
       }
     }

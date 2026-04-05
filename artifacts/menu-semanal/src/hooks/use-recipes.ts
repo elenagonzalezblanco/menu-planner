@@ -1,1 +1,6 @@
-export { useRecipes, useCreateRecipe, useUpdateRecipe, useDeleteRecipe } from "./use-local-storage";
+export {
+  useListRecipes as useRecipes,
+  useCreateRecipe,
+  useUpdateRecipe,
+  useDeleteRecipe,
+} from "@workspace/api-client-react";

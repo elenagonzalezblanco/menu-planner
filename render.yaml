@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: menu-planner-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: menu-planner-db
+          property: connectionString
+      - key: RESEND_API_KEY
+        sync: false
+      - key: AI_INTEGRATIONS_OPENAI_API_KEY
+        sync: false
+      - key: AI_INTEGRATIONS_OPENAI_BASE_URL
+        sync: false
+
+databases:
+  - name: menu-planner-db
+    plan: free
+    databaseName: menu_planner

@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { chatWithMenuAgent, type ChatMessage } from "@/services/ai-menu";
-import type { DayMenu } from "@/lib/menus-storage";
-import { generateId } from "@/lib/storage";
+import type { DayMenu } from "@workspace/api-client-react";
 import {
   Popover,
   PopoverContent,
@@ -47,9 +46,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { menusQueryKey, shoppingQueryKey, getCurrentUserId } from "@/hooks/use-local-storage";
-import { storageGet, storageSet } from "@/lib/storage";
-import type { WeeklyMenu } from "@/lib/menus-storage";
+import { getListMenusQueryKey, getGetShoppingListQueryKey } from "@workspace/api-client-react";
+import type { WeeklyMenu, DayMenu as ApiDayMenu } from "@workspace/api-client-react";
 import { saveMenuToProfile, listSavedMenus, deleteSavedMenu, type SavedMenu } from "@/lib/menus-storage";
 import { cn } from "@/lib/utils";
 import {
@@ -108,7 +106,7 @@ export default function MenuPage() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveLabel, setSaveLabel] = useState("");
   const [savedMenus, setSavedMenus] = useState<SavedMenu[]>(() => {
-    const uid = getCurrentUserId();
+    const uid = currentUser?.id ? String(currentUser.id) : null;
     return uid ? listSavedMenus(uid) : [];
   });
   // ── AI Chat state ──
@@ -128,33 +126,32 @@ export default function MenuPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  const sendMenuByEmail = () => {
+  const sendMenuByEmail = async () => {
     if (!latestMenu || !displayDays) return;
-    const days = displayDays as DayPlan[];
-    const lines: string[] = ["MENÚ SEMANAL", "═".repeat(40), ""];
-    days.forEach((d) => {
-      lines.push(`📅 ${d.day.toUpperCase()}`);
-      const fmt = (meal: MealPlan | null | undefined, label: string) => {
-        if (!meal) return;
-        lines.push(`  ${label}:`);
-        if (meal.primero) lines.push(`    Primero: ${meal.primero.name}`);
-        if (meal.primero2) lines.push(`    Primero: ${meal.primero2.name}`);
-        if (meal.segundo) lines.push(`    Segundo: ${meal.segundo.name}`);
-        if (meal.segundo2) lines.push(`    Segundo: ${meal.segundo2.name}`);
-      };
-      fmt(d.lunch, "Comida ☀️");
-      fmt(d.dinner, "Cena 🌙");
-      lines.push("");
-    });
-    const body = encodeURIComponent(lines.join("\n"));
-    const subject = encodeURIComponent("Menú Semanal");
-    const to = currentUser?.email ? encodeURIComponent(currentUser.email) : "";
-    window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      const res = await fetch(`${API_URL}/api/email/menu`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": String(currentUser?.id ?? ""),
+        },
+        body: JSON.stringify({ days: displayDays }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Error al enviar");
+      }
+      toast({ title: "Email enviado", description: "Revisa tu bandeja de entrada." });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error";
+      toast({ title: msg, variant: "destructive" });
+    }
   };
 
   const handleSaveMenu = () => {
     if (!latestMenu || !displayDays) return;
-    const uid = getCurrentUserId();
+    const uid = currentUser?.id ? String(currentUser.id) : null;
     if (!uid) return;
     const label = saveLabel.trim() || `Menú del ${new Date().toLocaleDateString('es-ES')}`;
     saveMenuToProfile(uid, displayDays as any, label);
@@ -165,32 +162,33 @@ export default function MenuPage() {
   };
 
   const handleDeleteSavedMenu = (id: string) => {
-    const uid = getCurrentUserId();
+    const uid = currentUser?.id ? String(currentUser.id) : null;
     if (!uid) return;
     deleteSavedMenu(uid, id);
     setSavedMenus(listSavedMenus(uid));
     toast({ title: "Menú eliminado" });
   };
 
-  const sendSavedMenuByEmail = (menu: SavedMenu) => {
-    const days = menu.days as unknown as DayPlan[];
-    const lines: string[] = [`MENÚ: ${menu.label}`, "═".repeat(40), ""];
-    days.forEach((d) => {
-      lines.push(`📅 ${d.day.toUpperCase()}`);
-      const fmt = (meal: MealPlan | null | undefined, label: string) => {
-        if (!meal) return;
-        lines.push(`  ${label}:`);
-        if ((meal as any).primero) lines.push(`    Primero: ${(meal as any).primero.name}`);
-        if ((meal as any).segundo) lines.push(`    Segundo: ${(meal as any).segundo.name}`);
-      };
-      fmt(d.lunch, "Comida ☀️");
-      fmt(d.dinner, "Cena 🌙");
-      lines.push("");
-    });
-    const body = encodeURIComponent(lines.join("\n"));
-    const subject = encodeURIComponent(`Menú: ${menu.label}`);
-    const to = currentUser?.email ? encodeURIComponent(currentUser.email) : "";
-    window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");
+  const sendSavedMenuByEmail = async (menu: SavedMenu) => {
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      const res = await fetch(`${API_URL}/api/email/menu`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": String(currentUser?.id ?? ""),
+        },
+        body: JSON.stringify({ days: menu.days, subject: `Menú: ${menu.label}` }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Error al enviar");
+      }
+      toast({ title: "Email enviado", description: `"${menu.label}" enviado.` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error";
+      toast({ title: msg, variant: "destructive" });
+    }
   };
 
   // ── AI Chat handlers ──
@@ -218,7 +216,7 @@ export default function MenuPage() {
     setAiInput("");
     setAiLoading(true);
     try {
-      const result = await chatWithMenuAgent(azureEndpoint, azureDeployment, azureApiKey, newMessages, recipes);
+      const result = await chatWithMenuAgent(azureEndpoint, azureDeployment, azureApiKey, newMessages, recipes as any);
       setAiMessages([...newMessages, { role: "assistant", content: result.text }]);
       if (result.menu) {
         setPendingAiMenu(result.menu);
@@ -233,21 +231,26 @@ export default function MenuPage() {
 
   const handleApplyAiMenu = async () => {
     if (!pendingAiMenu) return;
-    const userId = getCurrentUserId();
-    if (!userId) return;
-    const newMenu: WeeklyMenu = {
-      id: generateId(),
-      days: pendingAiMenu,
-      createdAt: new Date().toISOString(),
-    };
-    const existing = storageGet<WeeklyMenu[]>(userId, "menus") ?? [];
-    storageSet(userId, "menus", [newMenu, ...existing]);
-    await queryClient.invalidateQueries({ queryKey: menusQueryKey(userId) });
-    setPendingAiMenu(null);
-    toast({ title: "¡Menú aplicado!", description: "El menú del asistente IA está listo." });
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      const res = await fetch(`${API_URL}/api/menus`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": String(currentUser?.id ?? ""),
+        },
+        body: JSON.stringify({ days: pendingAiMenu }),
+      });
+      if (!res.ok) throw new Error("Failed to save menu");
+      await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
+      setPendingAiMenu(null);
+      toast({ title: "¡Menú aplicado!", description: "El menú del asistente IA está listo." });
+    } catch {
+      toast({ title: "Error al guardar el menú", variant: "destructive" });
+    }
   };
 
-  const handleCreateShoppingList = (menuId: string) => {    generateShopping.mutate(menuId, {
+  const handleCreateShoppingList = (menuId: number) => {    generateShopping.mutate({ data: { menuId } }, {
       onSuccess: () => {
         toast({ title: "Lista generada", description: "Lista de compra consolidada." });
         setLocation("/shopping");
@@ -269,14 +272,17 @@ export default function MenuPage() {
   const saveMenu = async (updatedDays: DayPlan[]) => {
     if (!latestMenu) return;
     try {
-      const userId = getCurrentUserId();
-      const menus = storageGet<WeeklyMenu[]>(userId, 'menus') ?? [];
-      const idx = menus.findIndex(m => m.id === String(latestMenu.id));
-      if (idx >= 0) {
-        menus[idx] = { ...menus[idx], days: updatedDays as any };
-        storageSet(userId, 'menus', menus);
-        await queryClient.invalidateQueries({ queryKey: menusQueryKey(userId) });
-      }
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+      const res = await fetch(`${API_URL}/api/menus/${latestMenu.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": String(currentUser?.id ?? ""),
+        },
+        body: JSON.stringify({ days: updatedDays }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      await queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
     } catch {
       toast({ title: "Error al guardar", variant: "destructive" });
     }
@@ -463,7 +469,7 @@ export default function MenuPage() {
                 <p className="text-sm text-muted-foreground">Genera un menú semanal aleatorio basado en tus recetas.</p>
               </div>
               <Button
-                onClick={() => generateMenu.mutate({})}
+                onClick={() => generateMenu.mutate({ data: {} })}
                 disabled={generateMenu.isPending}
                 className="rounded-xl px-5 gap-2 bg-primary hover:bg-primary/90 shrink-0"
               >
@@ -597,7 +603,7 @@ export default function MenuPage() {
             </p>
             <Button
               size="lg"
-              onClick={() => generateMenu.mutate({})}
+              onClick={() => generateMenu.mutate({ data: {} })}
               disabled={generateMenu.isPending}
               className="rounded-xl px-8 bg-primary hover:bg-primary/90"
             >

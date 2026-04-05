@@ -1,1 +1,4 @@
-export { useMenus, useGenerateMenu } from "./use-local-storage";
+export {
+  useListMenus as useMenus,
+  useGenerateMenu,
+} from "@workspace/api-client-react";

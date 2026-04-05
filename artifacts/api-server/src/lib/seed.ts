@@ -1,7 +1,7 @@
 import { db, recipesTable } from "@workspace/db";
 import { logger } from "./logger";
 
-const RECIPES = [
+export const DEFAULT_RECIPES = [
   { name: "Sopa de cebolla", category: "primero", ingredients: ["Cebollas", "Harina", "Mantequilla", "Vino blanco", "Queso gouda"], instructions: "" },
   { name: "Sopa de calabacín", category: "primero", ingredients: ["Calabacín", "Cebolla frita", "Quesitos", "Patata"], instructions: "" },
   { name: "Sopa de letras", category: "primero", ingredients: ["Hueso de jamón para el caldo", "Puerros", "Zanahorias", "Cebollas", "Fideos o letras"], instructions: "" },
@@ -86,8 +86,8 @@ export async function seedIfEmpty() {
       return;
     }
     logger.info("Seeding database with recipes...");
-    await db.insert(recipesTable).values(RECIPES);
-    logger.info({ count: RECIPES.length }, "Seed complete");
+    await db.insert(recipesTable).values(DEFAULT_RECIPES);
+    logger.info({ count: DEFAULT_RECIPES.length }, "Seed complete");
   } catch (err) {
     logger.error({ err }, "Failed to seed recipes");
   }

@@ -1,10 +1,21 @@
 import { Router, type IRouter } from "express";
 import { db, mercadonaSettingsTable } from "@workspace/db";
-import { chromium as playwrightChromium } from "playwright-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { execSync } from "child_process";
 
-playwrightChromium.use(StealthPlugin());
+let playwrightChromium: any = null;
+async function getPlaywright() {
+  if (!playwrightChromium) {
+    try {
+      const pw = await import("playwright-extra");
+      const stealth = await import("puppeteer-extra-plugin-stealth");
+      playwrightChromium = pw.chromium;
+      playwrightChromium.use(stealth.default());
+    } catch {
+      throw new Error("Playwright not available in this environment");
+    }
+  }
+  return playwrightChromium;
+}
 
 const MERC_API = "https://api.mercadona.es/api";
 const MERC_BROWSER_HEADERS: Record<string, string> = {
@@ -127,7 +138,8 @@ async function playwrightWithToken(
   let browser: any;
 
   try {
-    browser = await (playwrightChromium as any).launch({
+    const pw = await getPlaywright();
+    browser = await pw.launch({
       headless: true,
       executablePath: chromiumPath || undefined,
       args: [
@@ -291,7 +303,8 @@ async function playwrightBrowserLogin(
   let capturedToken: string | null = null;
 
   try {
-    browser = await (playwrightChromium as any).launch({
+    const pw = await getPlaywright();
+    browser = await pw.launch({
       headless: true,
       executablePath: chromiumPath || undefined,
       args: [

@@ -6,25 +6,32 @@ import {
   useCallback,
 } from "react";
 import type { ReactNode } from "react";
-import {
-  type User,
-  getAllUsers,
-  getUser,
-  createUser as storageCreateUser,
-  deleteUser as storageDeleteUser,
-  updateUser as storageUpdateUser,
-  getCurrentUserId,
-  setCurrentUserId,
-  clearCurrentUser,
-} from "@/lib/users-storage";
+import { setBaseUrl, setUserIdGetter } from "@workspace/api-client-react";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+// Configure API client base URL once
+setBaseUrl(API_URL);
+
+export interface User {
+  id: number;
+  name: string;
+  avatar: string;
+  email?: string | null;
+  mercadonaEmail?: string | null;
+  azureEndpoint?: string | null;
+  azureDeployment?: string | null;
+  azureApiKey?: string | null;
+  createdAt: string;
+}
 
 interface UserContextValue {
   currentUser: User | null;
   allUsers: User[];
-  setCurrentUser: (id: string) => void;
-  createUser: (name: string, avatar: string, email?: string) => User;
-  updateUser: (id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>) => User | null;
-  deleteUser: (id: string) => void;
+  setCurrentUser: (id: number) => void;
+  createUser: (name: string, avatar: string, email?: string) => Promise<User>;
+  updateUser: (id: number, updates: Partial<Omit<User, 'id' | 'createdAt'>>) => Promise<User | null>;
+  deleteUser: (id: number) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -36,65 +43,91 @@ export const UserContext = createContext<UserContextValue>({
   createUser: () => {
     throw new Error("UserProvider not mounted");
   },
-  updateUser: () => null,
-  deleteUser: () => {},
+  updateUser: async () => null,
+  deleteUser: async () => {},
   logout: () => {},
   isLoading: true,
 });
+
+const CURRENT_USER_KEY = "current_user_id";
 
 export function UserProvider({ children }: { children: ReactNode }): React.ReactElement {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUserState] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Set up the user ID getter for the API client
   useEffect(() => {
-    const users = getAllUsers();
-    setAllUsers(users);
+    setUserIdGetter(() => currentUser?.id ?? null);
+  }, [currentUser]);
 
-    const savedId = getCurrentUserId();
-    if (savedId) {
-      const user = getUser(savedId);
-      setCurrentUserState(user);
-    }
+  // Fetch users from API on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/users`);
+        if (res.ok) {
+          const users: User[] = await res.json();
+          setAllUsers(users);
 
-    setIsLoading(false);
+          const savedId = localStorage.getItem(CURRENT_USER_KEY);
+          if (savedId) {
+            const user = users.find((u) => u.id === Number(savedId));
+            if (user) setCurrentUserState(user);
+          }
+        }
+      } catch {
+        // API not available — will show user selection
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
-  const setCurrentUser = useCallback((id: string) => {
-    const user = getUser(id);
+  const setCurrentUser = useCallback((id: number) => {
+    const user = allUsers.find((u) => u.id === id);
     if (user) {
-      setCurrentUserId(id);
+      localStorage.setItem(CURRENT_USER_KEY, String(id));
       setCurrentUserState(user);
     }
-  }, []);
+  }, [allUsers]);
 
-  const createUser = useCallback((name: string, avatar: string, email?: string): User => {
-    const user = storageCreateUser(name, avatar, email);
-    setAllUsers(getAllUsers());
+  const createUser = useCallback(async (name: string, avatar: string, email?: string): Promise<User> => {
+    const res = await fetch(`${API_URL}/api/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), avatar, email: email?.trim() || undefined }),
+    });
+    if (!res.ok) throw new Error("Error creating user");
+    const user: User = await res.json();
+    setAllUsers((prev) => [...prev, user]);
     return user;
   }, []);
 
   const deleteUser = useCallback(
-    (id: string) => {
-      storageDeleteUser(id);
-      const updated = getAllUsers();
-      setAllUsers(updated);
+    async (id: number) => {
+      await fetch(`${API_URL}/api/users/${id}`, { method: "DELETE" });
+      setAllUsers((prev) => prev.filter((u) => u.id !== id));
       if (currentUser?.id === id) {
-        clearCurrentUser();
+        localStorage.removeItem(CURRENT_USER_KEY);
         setCurrentUserState(null);
       }
     },
-    [currentUser]
+    [currentUser],
   );
 
   const updateUser = useCallback(
-    (id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): User | null => {
-      const updated = storageUpdateUser(id, updates);
-      if (updated) {
-        setAllUsers(getAllUsers());
-        if (currentUser?.id === id) {
-          setCurrentUserState(updated);
-        }
+    async (id: number, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User | null> => {
+      const res = await fetch(`${API_URL}/api/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) return null;
+      const updated: User = await res.json();
+      setAllUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
+      if (currentUser?.id === id) {
+        setCurrentUserState((prev) => prev ? { ...prev, ...updated } : prev);
       }
       return updated;
     },
@@ -102,7 +135,7 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
   );
 
   const logout = useCallback(() => {
-    clearCurrentUser();
+    localStorage.removeItem(CURRENT_USER_KEY);
     setCurrentUserState(null);
   }, []);
 

@@ -85,6 +85,13 @@ async function autoMigrate() {
         "content" text NOT NULL,
         "created_at" timestamp with time zone DEFAULT now() NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS "saved_menus" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "user_id" integer REFERENCES "users"("id") ON DELETE cascade,
+        "label" text NOT NULL,
+        "days" jsonb NOT NULL,
+        "saved_at" timestamp DEFAULT now() NOT NULL
+      );
     `);
     logger.info("Database migration completed");
   } finally {

@@ -39,6 +39,7 @@ import {
   MessageCircle,
   Shuffle,
   Settings,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -107,6 +108,29 @@ export default function MenuPage() {
     const uid = currentUser?.id ? String(currentUser.id) : null;
     return uid ? listSavedMenus(uid) : [];
   });
+
+  // Load saved menus from API on mount
+  useEffect(() => {
+    const uid = currentUser?.id;
+    if (!uid) return;
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    fetch(`${API_URL}/api/saved-menus`, {
+      headers: { "X-User-Id": String(uid) },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then((apiMenus: any[]) => {
+        if (apiMenus.length > 0) {
+          const mapped: SavedMenu[] = apiMenus.map(m => ({
+            id: String(m.id),
+            label: m.label,
+            days: m.days,
+            savedAt: m.savedAt ?? m.saved_at,
+          }));
+          setSavedMenus(mapped);
+        }
+      })
+      .catch(() => { /* fallback to localStorage which is already loaded */ });
+  }, [currentUser?.id]);
   // ── AI Chat state ──
   const [chatMode, setChatMode] = useState<"random" | "ai">("random");
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>([]);
@@ -147,23 +171,60 @@ export default function MenuPage() {
     }
   };
 
-  const handleSaveMenu = () => {
+  const handleSaveMenu = async () => {
     if (!latestMenu || !displayDays) return;
     const uid = currentUser?.id ? String(currentUser.id) : null;
     if (!uid) return;
     const label = saveLabel.trim() || `Menú del ${new Date().toLocaleDateString('es-ES')}`;
+    // Save to localStorage
     saveMenuToProfile(uid, displayDays as any, label);
-    setSavedMenus(listSavedMenus(uid));
+    // Save to API
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      const res = await fetch(`${API_URL}/api/saved-menus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-User-Id": uid },
+        body: JSON.stringify({ label, days: displayDays }),
+      });
+      if (res.ok) {
+        const apiMenus = await fetch(`${API_URL}/api/saved-menus`, {
+          headers: { "X-User-Id": uid },
+        }).then(r => r.json());
+        setSavedMenus(apiMenus.map((m: any) => ({
+          id: String(m.id), label: m.label, days: m.days, savedAt: m.savedAt ?? m.saved_at,
+        })));
+      } else {
+        setSavedMenus(listSavedMenus(uid));
+      }
+    } catch {
+      setSavedMenus(listSavedMenus(uid));
+    }
     setSaveLabel("");
     setShowSaveDialog(false);
     toast({ title: "Menú guardado", description: `"${label}" guardado en tu cuenta.` });
   };
 
-  const handleDeleteSavedMenu = (id: string) => {
+  const handleDeleteSavedMenu = async (id: string) => {
     const uid = currentUser?.id ? String(currentUser.id) : null;
     if (!uid) return;
+    // Delete from localStorage
     deleteSavedMenu(uid, id);
-    setSavedMenus(listSavedMenus(uid));
+    // Delete from API
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      await fetch(`${API_URL}/api/saved-menus/${id}`, {
+        method: "DELETE",
+        headers: { "X-User-Id": uid },
+      });
+      const apiMenus = await fetch(`${API_URL}/api/saved-menus`, {
+        headers: { "X-User-Id": uid },
+      }).then(r => r.json());
+      setSavedMenus(apiMenus.map((m: any) => ({
+        id: String(m.id), label: m.label, days: m.days, savedAt: m.savedAt ?? m.saved_at,
+      })));
+    } catch {
+      setSavedMenus(listSavedMenus(uid));
+    }
     toast({ title: "Menú eliminado" });
   };
 
@@ -183,6 +244,27 @@ export default function MenuPage() {
         throw new Error(err.error || "Error al enviar");
       }
       toast({ title: "Email enviado", description: `"${menu.label}" enviado.` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error";
+      toast({ title: msg, variant: "destructive" });
+    }
+  };
+
+  const downloadSavedMenuPdf = async (menu: SavedMenu) => {
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      const res = await fetch(`${API_URL}/api/saved-menus/${menu.id}/pdf`, {
+        headers: { "X-User-Id": String(currentUser?.id ?? "") },
+      });
+      if (!res.ok) throw new Error("Error al generar PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${menu.label}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "PDF descargado" });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error";
       toast({ title: msg, variant: "destructive" });
@@ -706,6 +788,15 @@ export default function MenuPage() {
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg gap-1.5 border-border/60"
+                    onClick={() => downloadSavedMenuPdf(sm)}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    PDF
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

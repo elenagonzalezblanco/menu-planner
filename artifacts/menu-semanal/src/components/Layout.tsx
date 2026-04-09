@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Utensils, CalendarDays, ShoppingBasket, ShoppingBag, Menu as MenuIcon, Settings } from "lucide-react";
+import { Utensils, CalendarDays, ShoppingBasket, ShoppingBag, Menu as MenuIcon, Settings, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -20,7 +20,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const { currentUser } = useUser();
+  const { currentUser, logout } = useUser();
 
   const NavLinks = () => (
     <>
@@ -87,6 +87,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               <Settings className="w-4 h-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl text-muted-foreground hover:text-destructive shrink-0"
+              onClick={logout}
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         )}
       </aside>
@@ -119,6 +128,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   title="Configurar perfil"
                 >
                   <Settings className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-xl text-muted-foreground hover:text-destructive"
+                  onClick={logout}
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="w-4 h-4" />
                 </Button>
               </>
             )}

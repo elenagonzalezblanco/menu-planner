@@ -39,7 +39,7 @@ const clientDir = path.resolve(
 );
 
 // Serve pre-compressed .gz files for assets when client supports gzip
-app.get("/assets/*", (req, res, next) => {
+app.get("/assets/{*path}", (req, res, next) => {
   if (!/\bgzip\b/.test(req.headers["accept-encoding"] || "")) return next();
   const gzPath = path.join(clientDir, req.path + ".gz");
   if (!existsSync(gzPath)) return next();

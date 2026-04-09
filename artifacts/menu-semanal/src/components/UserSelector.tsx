@@ -122,11 +122,11 @@ export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
 
   const isFirstLaunch = allUsers.length === 0;
 
-  // In switcher mode or first launch, skip welcome screen
+  // In switcher mode, skip welcome screen
   const effectiveView =
     mode === "switcher"
       ? isFirstLaunch ? "register" : "login"
-      : isFirstLaunch && view === "welcome" ? "welcome" : view;
+      : view;
 
   const content = (
     <div className="w-full max-w-sm mx-auto flex flex-col gap-6">
@@ -141,16 +141,14 @@ export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
             </p>
           </div>
           <div className="flex flex-col gap-3 pt-2">
-            {allUsers.length > 0 && (
-              <Button
-                className="w-full rounded-xl h-12 text-base font-semibold"
-                onClick={() => setView("login")}
-              >
-                Iniciar sesión
-              </Button>
-            )}
             <Button
-              variant={allUsers.length > 0 ? "outline" : "default"}
+              className="w-full rounded-xl h-12 text-base font-semibold"
+              onClick={() => setView("login")}
+            >
+              Iniciar sesión
+            </Button>
+            <Button
+              variant="outline"
               className="w-full rounded-xl h-12 text-base font-semibold"
               onClick={() => setView("register")}
             >
@@ -169,6 +167,17 @@ export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
             <p className="text-muted-foreground">Selecciona tu perfil para entrar</p>
           </div>
           <div className="flex flex-col gap-3">
+            {isFirstLaunch && (
+              <div className="text-center py-6 text-muted-foreground">
+                <p className="text-base">Todavía no hay cuentas registradas.</p>
+                <button
+                  className="text-primary font-medium hover:underline mt-2"
+                  onClick={() => setView("register")}
+                >
+                  Crear tu primera cuenta
+                </button>
+              </div>
+            )}
             {allUsers.map((user) => (
               <div key={user.id} className="flex items-center gap-2">
                 <Card

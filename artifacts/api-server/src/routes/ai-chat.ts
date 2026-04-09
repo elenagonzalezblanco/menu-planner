@@ -1,19 +1,8 @@
 import { Router, type IRouter } from "express";
-import OpenAI from "openai";
+import { getAzureOpenAIClient, MODEL } from "../lib/azure-openai";
 import type { AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
-
-const MODEL = process.env.AZURE_OPENAI_MODEL || "gpt-4o";
-
-function getClient() {
-  return new OpenAI({
-    apiKey: process.env.AZURE_OPENAI_API_KEY,
-    baseURL:
-      process.env.AZURE_OPENAI_BASE_URL ||
-      "https://menuplanner3-resource.services.ai.azure.com/api/projects/menuplanner3/openai/v1",
-  });
-}
 
 router.post("/ai/chat", async (req: AuthenticatedRequest, res) => {
   try {
@@ -27,7 +16,7 @@ router.post("/ai/chat", async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    const client = getClient();
+    const client = await getAzureOpenAIClient();
     const completion = await client.chat.completions.create({
       model: MODEL,
       messages: [

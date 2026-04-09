@@ -1,13 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db, recipesTable, weeklyMenusTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import OpenAI from "openai";
+import { getAzureOpenAIClient, MODEL } from "../lib/azure-openai";
 import { GenerateMenuBody, GetMenuParams } from "@workspace/api-zod";
 import type { AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
-
-const MODEL = process.env.AZURE_OPENAI_MODEL || "gpt-4o";
 
 type DayMenu = {
   day: string;
@@ -16,12 +14,7 @@ type DayMenu = {
 };
 
 function getClient() {
-  return new OpenAI({
-    apiKey: process.env.AZURE_OPENAI_API_KEY,
-    baseURL:
-      process.env.AZURE_OPENAI_BASE_URL ||
-      "https://menuplanner3-resource.services.ai.azure.com/api/projects/menuplanner3/openai/v1",
-  });
+  return getAzureOpenAIClient();
 }
 
 const DAYS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
@@ -248,10 +241,11 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown.`;
     let menuDays: DayMenu[];
 
     // Try AI generation first; fall back to deterministic if no key or error
-    const hasKey = !!process.env.AZURE_OPENAI_API_KEY;
+    const hasKey = !!process.env.AZURE_CLIENT_ID;
     if (hasKey) {
       try {
-        const completion = await getClient().chat.completions.create({
+        const client = await getClient();
+        const completion = await client.chat.completions.create({
           model: MODEL,
           messages: [
             { role: "system", content: systemPrompt },
@@ -447,8 +441,8 @@ Cuando hay cambios:
       { role: "user", content: message },
     ];
 
-    // Use Azure OpenAI SDK with API key
-    const client = getClient();
+    // Use Azure OpenAI SDK with Entra ID token
+    const client = await getClient();
     const completion = await client.chat.completions.create({
       model: MODEL,
       messages,

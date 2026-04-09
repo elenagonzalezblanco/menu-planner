@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
 import { db, recipesTable, weeklyMenusTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import OpenAI from "openai";
-import { DefaultAzureCredential } from "@azure/identity";
+import { AzureOpenAI } from "openai";
 import { GenerateMenuBody, GetMenuParams } from "@workspace/api-zod";
 import type { AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+const AZURE_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini";
 
 type DayMenu = {
   day: string;
@@ -14,10 +15,11 @@ type DayMenu = {
   dinner: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null };
 };
 
-function getOpenAI() {
-  return new OpenAI({
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? "not-set",
+function getAzureClient() {
+  return new AzureOpenAI({
+    apiKey: process.env.AZURE_OPENAI_API_KEY,
+    endpoint: process.env.AZURE_OPENAI_ENDPOINT || "https://planner.openai.azure.com",
+    apiVersion: "2024-02-01",
   });
 }
 
@@ -245,11 +247,11 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown.`;
     let menuDays: DayMenu[];
 
     // Try AI generation first; fall back to deterministic if no key or error
-    const hasAiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_API_KEY !== "not-set";
-    if (hasAiKey) {
+    const hasAzureKey = !!process.env.AZURE_OPENAI_API_KEY;
+    if (hasAzureKey) {
       try {
-        const completion = await getOpenAI().chat.completions.create({
-          model: "gpt-4o",
+        const completion = await getAzureClient().chat.completions.create({
+          model: AZURE_DEPLOYMENT,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -444,36 +446,17 @@ Cuando hay cambios:
       { role: "user", content: message },
     ];
 
-    // Use Azure Entra ID auth (same as ai-chat.ts)
-    const azureEndpoint = (process.env.AZURE_OPENAI_ENDPOINT || "https://planner.openai.azure.com").replace(/\/$/, "");
-    const azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini";
-    const apiVersion = "2024-02-01";
-    const credential = new DefaultAzureCredential();
-    const tokenResponse = await credential.getToken("https://cognitiveservices.azure.com/.default");
-    const url = `${azureEndpoint}/openai/deployments/${azureDeployment}/chat/completions?api-version=${apiVersion}`;
-
-    const azureRes = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${tokenResponse.token}`,
-      },
-      body: JSON.stringify({
-        messages,
-        temperature: 0.7,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-      }),
+    // Use Azure OpenAI SDK with API key
+    const client = getAzureClient();
+    const completion = await client.chat.completions.create({
+      model: AZURE_DEPLOYMENT,
+      messages,
+      temperature: 0.7,
+      max_tokens: 4096,
+      response_format: { type: "json_object" },
     });
 
-    if (!azureRes.ok) {
-      const errText = await azureRes.text();
-      console.error("Azure OpenAI error in chat:", azureRes.status, errText);
-      throw new Error(`Azure OpenAI error: ${errText.slice(0, 300)}`);
-    }
-
-    const azureData = await azureRes.json();
-    const raw = JSON.parse(azureData.choices?.[0]?.message?.content ?? "{}");
+    const raw = JSON.parse(completion.choices?.[0]?.message?.content ?? "{}");
     const reply: string = raw.reply ?? "Hecho.";
     let updatedMenu = null;
 

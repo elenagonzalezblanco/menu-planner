@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, usersTable, recipesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { createHash } from "crypto";
+import { Resend } from "resend";
 import { DEFAULT_RECIPES } from "../lib/seed";
 
 const router: IRouter = Router();
@@ -14,6 +15,38 @@ function hashPassword(password: string): string {
 
 function verifyPassword(password: string, hash: string): boolean {
   return hashPassword(password) === hash;
+}
+
+async function sendWelcomeEmail(name: string, email: string) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return; // silently skip if not configured
+  try {
+    const resend = new Resend(key);
+    await resend.emails.send({
+      from: "Menu Planner <onboarding@resend.dev>",
+      to: email,
+      subject: "🍽️ ¡Bienvenido/a a Los Menús de Elena!",
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <h1 style="color:#16a34a;margin-bottom:8px">🍽️ ¡Bienvenido/a, ${name}!</h1>
+          <p style="font-size:16px;color:#374151">Tu cuenta ha sido creada correctamente.</p>
+          <p style="font-size:16px;color:#374151">Ya puedes empezar a planificar tus menús semanales con ayuda de la IA.</p>
+          <div style="margin:24px 0;padding:16px;background:#f0fdf4;border-radius:12px">
+            <p style="margin:0;font-size:14px;color:#166534"><strong>¿Qué puedes hacer?</strong></p>
+            <ul style="margin:8px 0 0;padding-left:20px;color:#166534;font-size:14px">
+              <li>Generar menús semanales automáticamente</li>
+              <li>Pedir sugerencias al agente de IA</li>
+              <li>Crear tu lista de la compra</li>
+              <li>Enviar todo a tu email</li>
+            </ul>
+          </div>
+          <p style="color:#6b7280;font-size:12px">Enviado desde Menu Planner</p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error("Welcome email error:", err);
+  }
 }
 
 // List all users
@@ -65,6 +98,10 @@ router.post("/users", async (req, res) => {
       const recipesWithUser = DEFAULT_RECIPES.map(r => ({ ...r, userId: user.id }));
       await db.insert(recipesTable).values(recipesWithUser);
     } catch { /* non-fatal — user created but recipes seed failed */ }
+    // Send welcome email (non-blocking, non-fatal)
+    if (email?.trim()) {
+      sendWelcomeEmail(name.trim(), email.trim());
+    }
     const { passwordHash: _, azureApiKey: _k, ...safe } = user;
     res.status(201).json(safe);
   } catch {

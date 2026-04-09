@@ -13,9 +13,10 @@ interface CreateFormProps {
   onCreated: (user: User) => void;
   onCancel?: () => void;
   showCancel?: boolean;
+  onGoToLogin?: () => void;
 }
 
-function CreateForm({ onCreated, onCancel, showCancel }: CreateFormProps) {
+function CreateForm({ onCreated, onCancel, showCancel, onGoToLogin }: CreateFormProps) {
   const { createUser, setCurrentUser } = useUser();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,6 +24,7 @@ function CreateForm({ onCreated, onCancel, showCancel }: CreateFormProps) {
   const [avatar, setAvatar] = useState(EMOJI_OPTIONS[0]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [createdUser, setCreatedUser] = useState<User | null>(null);
 
   async function handleSubmit() {
     if (!name.trim() || !password) return;
@@ -30,13 +32,44 @@ function CreateForm({ onCreated, onCancel, showCancel }: CreateFormProps) {
     setLoading(true);
     try {
       const user = await createUser(name.trim(), avatar, password, email.trim() || undefined);
-      setCurrentUser(user.id);
-      onCreated(user);
+      setCreatedUser(user);
     } catch (err: any) {
       setError(err.message || "Error al crear la cuenta");
     } finally {
       setLoading(false);
     }
+  }
+
+  // Confirmation screen after successful registration
+  if (createdUser) {
+    return (
+      <div className="flex flex-col gap-5 items-center text-center">
+        <div className="text-6xl">{createdUser.avatar || "🎉"}</div>
+        <h2 className="font-display font-bold text-2xl">¡Cuenta creada!</h2>
+        <p className="text-muted-foreground">
+          Bienvenido/a, <span className="font-semibold text-foreground">{createdUser.name}</span>.
+          {email && " Te hemos enviado un email de bienvenida."}
+        </p>
+        <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-4 w-full">
+          <p className="text-sm text-green-700 dark:text-green-400">
+            Tu cuenta está lista. Inicia sesión para empezar a planificar tus menús.
+          </p>
+        </div>
+        <Button
+          className="w-full rounded-xl h-12 text-base font-semibold mt-2"
+          onClick={() => {
+            if (onGoToLogin) {
+              onGoToLogin();
+            } else {
+              setCurrentUser(createdUser.id);
+              onCreated(createdUser);
+            }
+          }}
+        >
+          Iniciar sesión
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -276,6 +309,7 @@ export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
           </div>
           <CreateForm
             onCreated={handleUserCreated}
+            onGoToLogin={() => setView("login")}
             onCancel={
               (allUsers.length > 0 || mode === "switcher")
                 ? () => setView(allUsers.length > 0 ? "login" : "welcome")

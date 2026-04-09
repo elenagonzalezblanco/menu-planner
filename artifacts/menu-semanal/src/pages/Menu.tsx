@@ -566,7 +566,12 @@ export default function MenuPage() {
                 <p className="text-sm text-muted-foreground">Genera un menú semanal aleatorio basado en tus recetas.</p>
               </div>
               <Button
-                onClick={() => generateMenu.mutate({ data: {} })}
+                onClick={() => generateMenu.mutate({ data: {} }, {
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({ queryKey: getListMenusQueryKey() });
+                    toast({ title: "¡Menú generado!" });
+                  },
+                })}
                 disabled={generateMenu.isPending}
                 className="rounded-xl px-5 gap-2 bg-primary hover:bg-primary/90 shrink-0"
               >

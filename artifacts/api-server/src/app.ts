@@ -1,11 +1,15 @@
 import path from "path";
 import express, { type Express } from "express";
+import compression from "compression";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+
+// Gzip/deflate compression for all responses
+app.use(compression());
 
 app.use(
   pinoHttp({
@@ -36,7 +40,16 @@ app.use("/api", router);
 const clientDir = path.resolve(
   process.env.NODE_ENV === "production" ? "./client" : "../../artifacts/menu-semanal/dist"
 );
-app.use(express.static(clientDir));
+// Hashed assets (JS/CSS) — cache for 1 year
+app.use(
+  "/assets",
+  express.static(path.join(clientDir, "assets"), {
+    maxAge: "365d",
+    immutable: true,
+  })
+);
+// Other static files (index.html, manifest, etc.) — short cache
+app.use(express.static(clientDir, { maxAge: "10m" }));
 // SPA catch-all: any non-API route returns index.html
 app.get("/{*path}", (_req, res) => {
   res.sendFile(path.join(clientDir, "index.html"));

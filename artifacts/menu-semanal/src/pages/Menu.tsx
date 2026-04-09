@@ -113,7 +113,7 @@ export default function MenuPage() {
   useEffect(() => {
     const uid = currentUser?.id;
     if (!uid) return;
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
     fetch(`${API_URL}/api/saved-menus`, {
       headers: { "X-User-Id": String(uid) },
     })
@@ -150,7 +150,7 @@ export default function MenuPage() {
 
   const sendMenuByEmail = async () => {
     if (!latestMenu || !displayDays) return;
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
     try {
       const res = await fetch(`${API_URL}/api/email/menu`, {
         method: "POST",
@@ -179,7 +179,7 @@ export default function MenuPage() {
     // Save to localStorage
     saveMenuToProfile(uid, displayDays as any, label);
     // Save to API
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
     try {
       const res = await fetch(`${API_URL}/api/saved-menus`, {
         method: "POST",
@@ -210,7 +210,7 @@ export default function MenuPage() {
     // Delete from localStorage
     deleteSavedMenu(uid, id);
     // Delete from API
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
     try {
       await fetch(`${API_URL}/api/saved-menus/${id}`, {
         method: "DELETE",
@@ -229,7 +229,7 @@ export default function MenuPage() {
   };
 
   const sendSavedMenuByEmail = async (menu: SavedMenu) => {
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
     try {
       const res = await fetch(`${API_URL}/api/email/menu`, {
         method: "POST",
@@ -251,7 +251,7 @@ export default function MenuPage() {
   };
 
   const downloadSavedMenuPdf = async (menu: SavedMenu) => {
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
     try {
       const res = await fetch(`${API_URL}/api/saved-menus/${menu.id}/pdf`, {
         headers: { "X-User-Id": String(currentUser?.id ?? "") },
@@ -302,7 +302,7 @@ export default function MenuPage() {
 
   const handleDeleteMenu = async () => {
     if (!latestMenu) return;
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
     try {
       await fetch(`${API_URL}/api/menus/${latestMenu.id}`, {
         method: "DELETE",
@@ -352,7 +352,7 @@ export default function MenuPage() {
   const saveMenu = async (updatedDays: DayPlan[]) => {
     if (!latestMenu) return;
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+      const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
       const res = await fetch(`${API_URL}/api/menus/${latestMenu.id}`, {
         method: "PATCH",
         headers: {

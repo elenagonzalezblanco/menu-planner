@@ -36,7 +36,7 @@ export default function ShoppingPage() {
   };
 
   const sendShoppingByEmail = async () => {
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
     try {
       const res = await fetch(`${API_URL}/api/email/shopping`, {
         method: "POST",

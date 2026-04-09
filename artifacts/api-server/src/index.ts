@@ -32,7 +32,9 @@ async function autoMigrate() {
       `SELECT COUNT(*) AS cnt FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users'`
     );
     if (Number(rows[0].cnt) > 0) {
-      logger.info("Database tables already exist, skipping migration");
+      logger.info("Database tables already exist, running incremental migrations");
+      // Add password_hash column if it doesn't exist
+      await client.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "password_hash" text`);
       return;
     }
     logger.info("Running initial database migration...");
@@ -42,6 +44,7 @@ async function autoMigrate() {
         "name" text NOT NULL,
         "avatar" text DEFAULT '👩‍🍳' NOT NULL,
         "email" text,
+        "password_hash" text,
         "mercadona_email" text,
         "azure_endpoint" text,
         "azure_deployment" text,

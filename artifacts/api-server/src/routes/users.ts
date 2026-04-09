@@ -1,9 +1,20 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, recipesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { createHash } from "crypto";
 import { DEFAULT_RECIPES } from "../lib/seed";
 
 const router: IRouter = Router();
+
+// Simple password hashing (SHA-256 + salt)
+function hashPassword(password: string): string {
+  const salt = "menu-planner-salt-2026";
+  return createHash("sha256").update(salt + password).digest("hex");
+}
+
+function verifyPassword(password: string, hash: string): boolean {
+  return hashPassword(password) === hash;
+}
 
 // List all users
 router.get("/users", async (_req, res) => {
@@ -30,9 +41,13 @@ router.get("/users", async (_req, res) => {
 // Create user
 router.post("/users", async (req, res) => {
   try {
-    const { name, avatar, email, mercadonaEmail } = req.body;
+    const { name, avatar, email, password, mercadonaEmail } = req.body;
     if (!name || typeof name !== "string") {
       res.status(400).json({ error: "Name is required" });
+      return;
+    }
+    if (!password || typeof password !== "string" || password.length < 4) {
+      res.status(400).json({ error: "Password must be at least 4 characters" });
       return;
     }
     const [user] = await db
@@ -41,6 +56,7 @@ router.post("/users", async (req, res) => {
         name: name.trim(),
         avatar: avatar || "👩‍🍳",
         email: email?.trim() || null,
+        passwordHash: hashPassword(password),
         mercadonaEmail: mercadonaEmail?.trim() || null,
       })
       .returning();
@@ -49,9 +65,38 @@ router.post("/users", async (req, res) => {
       const recipesWithUser = DEFAULT_RECIPES.map(r => ({ ...r, userId: user.id }));
       await db.insert(recipesTable).values(recipesWithUser);
     } catch { /* non-fatal — user created but recipes seed failed */ }
-    res.status(201).json(user);
+    const { passwordHash: _, azureApiKey: _k, ...safe } = user;
+    res.status(201).json(safe);
   } catch {
     res.status(500).json({ error: "Error creating user" });
+  }
+});
+
+// Login — verify email/name + password
+router.post("/users/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      res.status(400).json({ error: "Email and password are required" });
+      return;
+    }
+    // Find user by email or name
+    const users = await db.select().from(usersTable);
+    const user = users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase() || u.name.toLowerCase() === email.toLowerCase()
+    );
+    if (!user || !user.passwordHash) {
+      res.status(401).json({ error: "Usuario o contraseña incorrectos" });
+      return;
+    }
+    if (!verifyPassword(password, user.passwordHash)) {
+      res.status(401).json({ error: "Usuario o contraseña incorrectos" });
+      return;
+    }
+    const { passwordHash: _, azureApiKey: _k, ...safe } = user;
+    res.json(safe);
+  } catch {
+    res.status(500).json({ error: "Error during login" });
   }
 });
 

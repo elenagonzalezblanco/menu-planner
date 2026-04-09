@@ -7,6 +7,7 @@ export const usersTable = pgTable("users", {
   name: text("name").notNull(),
   avatar: text("avatar").notNull().default("👩‍🍳"),
   email: text("email"),
+  passwordHash: text("password_hash"),
   mercadonaEmail: text("mercadona_email"),
   azureEndpoint: text("azure_endpoint"),
   azureDeployment: text("azure_deployment"),

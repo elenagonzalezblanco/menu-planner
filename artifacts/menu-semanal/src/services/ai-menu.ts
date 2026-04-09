@@ -18,7 +18,7 @@ export async function chatWithMenuAgent(
   menuId?: number,
   userId?: number,
 ): Promise<{ reply: string; updatedMenu?: any }> {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
   // Extract the latest user message
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');

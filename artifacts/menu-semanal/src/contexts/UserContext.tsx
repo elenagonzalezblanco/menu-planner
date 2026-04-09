@@ -8,7 +8,7 @@ import {
 import type { ReactNode } from "react";
 import { setBaseUrl, setUserIdGetter } from "@workspace/api-client-react";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 // Configure API client base URL once
 setBaseUrl(API_URL);
@@ -29,7 +29,8 @@ interface UserContextValue {
   currentUser: User | null;
   allUsers: User[];
   setCurrentUser: (id: number) => void;
-  createUser: (name: string, avatar: string, email?: string) => Promise<User>;
+  createUser: (name: string, avatar: string, password: string, email?: string) => Promise<User>;
+  loginUser: (email: string, password: string) => Promise<User>;
   updateUser: (id: number, updates: Partial<Omit<User, 'id' | 'createdAt'>>) => Promise<User | null>;
   deleteUser: (id: number) => Promise<void>;
   logout: () => void;
@@ -41,6 +42,9 @@ export const UserContext = createContext<UserContextValue>({
   allUsers: [],
   setCurrentUser: () => {},
   createUser: () => {
+    throw new Error("UserProvider not mounted");
+  },
+  loginUser: () => {
     throw new Error("UserProvider not mounted");
   },
   updateUser: async () => null,
@@ -92,15 +96,39 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
     }
   }, [allUsers]);
 
-  const createUser = useCallback(async (name: string, avatar: string, email?: string): Promise<User> => {
+  const createUser = useCallback(async (name: string, avatar: string, password: string, email?: string): Promise<User> => {
     const res = await fetch(`${API_URL}/api/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), avatar, email: email?.trim() || undefined }),
+      body: JSON.stringify({ name: name.trim(), avatar, password, email: email?.trim() || undefined }),
     });
-    if (!res.ok) throw new Error("Error creating user");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Error creating user" }));
+      throw new Error(err.error || "Error creating user");
+    }
     const user: User = await res.json();
     setAllUsers((prev) => [...prev, user]);
+    return user;
+  }, []);
+
+  const loginUser = useCallback(async (email: string, password: string): Promise<User> => {
+    const res = await fetch(`${API_URL}/api/users/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Login failed" }));
+      throw new Error(err.error || "Login failed");
+    }
+    const user: User = await res.json();
+    // Add to allUsers if not already there
+    setAllUsers((prev) => {
+      if (prev.find((u) => u.id === user.id)) return prev;
+      return [...prev, user];
+    });
+    localStorage.setItem(CURRENT_USER_KEY, String(user.id));
+    setCurrentUserState(user);
     return user;
   }, []);
 
@@ -141,7 +169,7 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
 
   return (
     <UserContext.Provider
-      value={{ currentUser, allUsers, setCurrentUser, createUser, updateUser, deleteUser, logout, isLoading }}
+      value={{ currentUser, allUsers, setCurrentUser, createUser, loginUser, updateUser, deleteUser, logout, isLoading }}
     >
       {children}
     </UserContext.Provider>

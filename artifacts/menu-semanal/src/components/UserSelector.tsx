@@ -109,7 +109,7 @@ interface UserSelectorProps {
 
 export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
   const { allUsers, setCurrentUser, deleteUser } = useUser();
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [view, setView] = useState<"welcome" | "login" | "register">("welcome");
 
   function handleSelectUser(id: number) {
     setCurrentUser(id);
@@ -121,91 +121,165 @@ export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
   }
 
   const isFirstLaunch = allUsers.length === 0;
-  const title = isFirstLaunch ? "¡Bienvenido!" : "¿Quién cocina hoy?";
-  const subtitle = isFirstLaunch
-    ? "Crea tu perfil para empezar"
-    : "Selecciona tu perfil";
+
+  // In switcher mode or first launch, skip welcome screen
+  const effectiveView =
+    mode === "switcher"
+      ? isFirstLaunch ? "register" : "login"
+      : isFirstLaunch && view === "welcome" ? "welcome" : view;
 
   const content = (
     <div className="w-full max-w-sm mx-auto flex flex-col gap-6">
-      {/* Header */}
-      <div className="text-center flex flex-col gap-1">
-        <div className="text-5xl mb-2">🍽️</div>
-        <h1 className="font-display font-bold text-3xl">{title}</h1>
-        <p className="text-muted-foreground">{subtitle}</p>
-      </div>
-
-      {/* Existing users */}
-      {!isFirstLaunch && !showCreateForm && (
-        <div className="flex flex-col gap-3">
-          {allUsers.map((user) => (
-            <div key={user.id} className="flex items-center gap-2">
-              <Card
-                className="flex-1 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all duration-200 rounded-2xl"
-                onClick={() => handleSelectUser(user.id)}
+      {/* ── Welcome Screen ── */}
+      {effectiveView === "welcome" && (
+        <>
+          <div className="text-center flex flex-col gap-2">
+            <div className="text-6xl mb-2">🍽️</div>
+            <h1 className="font-display font-bold text-3xl">Los Menús de Elena</h1>
+            <p className="text-muted-foreground text-base">
+              Tu planificador de menú semanal con IA
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 pt-2">
+            {allUsers.length > 0 && (
+              <Button
+                className="w-full rounded-xl h-12 text-base font-semibold"
+                onClick={() => setView("login")}
               >
-                <CardContent className="flex items-center gap-4 p-4">
-                  <span className="text-3xl">{user.avatar}</span>
-                  <span className="font-semibold text-lg">{user.name}</span>
-                </CardContent>
-              </Card>
-              {allUsers.length >= 2 && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
-                      title="Eliminar perfil"
-                    >
-                      ✕
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>¿Eliminar perfil?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Se eliminará el perfil de <strong>{user.name}</strong>. Esta acción no se puede deshacer.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => deleteUser(user.id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Eliminar
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          ))}
-
-          <Button
-            variant="outline"
-            className="w-full rounded-xl h-12 text-base border-dashed"
-            onClick={() => setShowCreateForm(true)}
-          >
-            + Añadir perfil
-          </Button>
-
-          {mode === "switcher" && onClose && (
-            <Button variant="ghost" onClick={onClose} className="w-full rounded-xl">
-              Cancelar
+                Iniciar sesión
+              </Button>
+            )}
+            <Button
+              variant={allUsers.length > 0 ? "outline" : "default"}
+              className="w-full rounded-xl h-12 text-base font-semibold"
+              onClick={() => setView("register")}
+            >
+              Crear cuenta
             </Button>
-          )}
-        </div>
+          </div>
+        </>
       )}
 
-      {/* Create form — shown on first launch or when adding new user */}
-      {(isFirstLaunch || showCreateForm) && (
-        <CreateForm
-          onCreated={handleUserCreated}
-          onCancel={showCreateForm ? () => setShowCreateForm(false) : undefined}
-          showCancel={showCreateForm}
-        />
+      {/* ── Login: Select existing user ── */}
+      {effectiveView === "login" && (
+        <>
+          <div className="text-center flex flex-col gap-1">
+            <div className="text-5xl mb-2">👋</div>
+            <h1 className="font-display font-bold text-3xl">¡Hola de nuevo!</h1>
+            <p className="text-muted-foreground">Selecciona tu perfil para entrar</p>
+          </div>
+          <div className="flex flex-col gap-3">
+            {allUsers.map((user) => (
+              <div key={user.id} className="flex items-center gap-2">
+                <Card
+                  className="flex-1 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all duration-200 rounded-2xl"
+                  onClick={() => handleSelectUser(user.id)}
+                >
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <span className="text-3xl">{user.avatar}</span>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-lg">{user.name}</span>
+                      {user.email && (
+                        <span className="text-sm text-muted-foreground">{user.email}</span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+                {allUsers.length >= 2 && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        title="Eliminar perfil"
+                      >
+                        ✕
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar perfil?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Se eliminará el perfil de <strong>{user.name}</strong>. Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteUser(user.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+            ))}
+
+            {mode === "splash" && (
+              <p className="text-center text-sm text-muted-foreground pt-2">
+                ¿No tienes cuenta?{" "}
+                <button
+                  className="text-primary font-medium hover:underline"
+                  onClick={() => setView("register")}
+                >
+                  Crear cuenta
+                </button>
+              </p>
+            )}
+
+            {mode === "switcher" && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-xl h-12 text-base border-dashed"
+                  onClick={() => setView("register")}
+                >
+                  + Añadir perfil
+                </Button>
+                {onClose && (
+                  <Button variant="ghost" onClick={onClose} className="w-full rounded-xl">
+                    Cancelar
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Register: Create new account ── */}
+      {effectiveView === "register" && (
+        <>
+          <div className="text-center flex flex-col gap-1">
+            <div className="text-5xl mb-2">✨</div>
+            <h1 className="font-display font-bold text-3xl">Crear cuenta</h1>
+            <p className="text-muted-foreground">Configura tu perfil para empezar</p>
+          </div>
+          <CreateForm
+            onCreated={handleUserCreated}
+            onCancel={
+              (allUsers.length > 0 || mode === "switcher")
+                ? () => setView(allUsers.length > 0 ? "login" : "welcome")
+                : undefined
+            }
+            showCancel={allUsers.length > 0 || mode === "switcher"}
+          />
+          {mode === "splash" && allUsers.length > 0 && (
+            <p className="text-center text-sm text-muted-foreground">
+              ¿Ya tienes cuenta?{" "}
+              <button
+                className="text-primary font-medium hover:underline"
+                onClick={() => setView("login")}
+              >
+                Iniciar sesión
+              </button>
+            </p>
+          )}
+        </>
       )}
     </div>
   );

@@ -1,16 +1,17 @@
 import { Router, type IRouter } from "express";
-import { AzureOpenAI } from "openai";
+import OpenAI from "openai";
 import type { AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-const AZURE_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini";
+const MODEL = process.env.AZURE_OPENAI_MODEL || "gpt-4o";
 
-function getAzureClient() {
-  return new AzureOpenAI({
+function getClient() {
+  return new OpenAI({
     apiKey: process.env.AZURE_OPENAI_API_KEY,
-    endpoint: process.env.AZURE_OPENAI_ENDPOINT || "https://planner.openai.azure.com",
-    apiVersion: "2024-02-01",
+    baseURL:
+      process.env.AZURE_OPENAI_BASE_URL ||
+      "https://menuplanner3-resource.services.ai.azure.com/api/projects/menuplanner3/openai/v1",
   });
 }
 
@@ -26,9 +27,9 @@ router.post("/ai/chat", async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    const client = getAzureClient();
+    const client = getClient();
     const completion = await client.chat.completions.create({
-      model: AZURE_DEPLOYMENT,
+      model: MODEL,
       messages: [
         ...(systemPrompt ? [{ role: "system" as const, content: systemPrompt }] : []),
         ...messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content })),

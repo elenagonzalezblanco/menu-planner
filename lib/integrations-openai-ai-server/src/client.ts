@@ -1,7 +1,10 @@
-import { AzureOpenAI } from "openai";
+import OpenAI from "openai";
 
-export const openai = new AzureOpenAI({
+const BASE_URL =
+  process.env.AZURE_OPENAI_BASE_URL ||
+  "https://menuplanner3-resource.services.ai.azure.com/api/projects/menuplanner3/openai/v1";
+
+export const openai = new OpenAI({
   apiKey: process.env.AZURE_OPENAI_API_KEY,
-  endpoint: process.env.AZURE_OPENAI_ENDPOINT || "https://planner.openai.azure.com",
-  apiVersion: "2024-02-01",
+  baseURL: BASE_URL,
 });

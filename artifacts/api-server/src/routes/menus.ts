@@ -1,13 +1,13 @@
 import { Router, type IRouter } from "express";
 import { db, recipesTable, weeklyMenusTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { AzureOpenAI } from "openai";
+import OpenAI from "openai";
 import { GenerateMenuBody, GetMenuParams } from "@workspace/api-zod";
 import type { AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-const AZURE_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini";
+const MODEL = process.env.AZURE_OPENAI_MODEL || "gpt-4o";
 
 type DayMenu = {
   day: string;
@@ -15,11 +15,12 @@ type DayMenu = {
   dinner: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null };
 };
 
-function getAzureClient() {
-  return new AzureOpenAI({
+function getClient() {
+  return new OpenAI({
     apiKey: process.env.AZURE_OPENAI_API_KEY,
-    endpoint: process.env.AZURE_OPENAI_ENDPOINT || "https://planner.openai.azure.com",
-    apiVersion: "2024-02-01",
+    baseURL:
+      process.env.AZURE_OPENAI_BASE_URL ||
+      "https://menuplanner3-resource.services.ai.azure.com/api/projects/menuplanner3/openai/v1",
   });
 }
 
@@ -247,11 +248,11 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown.`;
     let menuDays: DayMenu[];
 
     // Try AI generation first; fall back to deterministic if no key or error
-    const hasAzureKey = !!process.env.AZURE_OPENAI_API_KEY;
-    if (hasAzureKey) {
+    const hasKey = !!process.env.AZURE_OPENAI_API_KEY;
+    if (hasKey) {
       try {
-        const completion = await getAzureClient().chat.completions.create({
-          model: AZURE_DEPLOYMENT,
+        const completion = await getClient().chat.completions.create({
+          model: MODEL,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -447,9 +448,9 @@ Cuando hay cambios:
     ];
 
     // Use Azure OpenAI SDK with API key
-    const client = getAzureClient();
+    const client = getClient();
     const completion = await client.chat.completions.create({
-      model: AZURE_DEPLOYMENT,
+      model: MODEL,
       messages,
       temperature: 0.7,
       max_tokens: 4096,

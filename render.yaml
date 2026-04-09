@@ -15,10 +15,10 @@ services:
         sync: false
       - key: AZURE_OPENAI_API_KEY
         sync: false
-      - key: AZURE_OPENAI_ENDPOINT
-        value: "https://planner.openai.azure.com"
-      - key: AZURE_OPENAI_DEPLOYMENT
-        value: "gpt-4o-mini"
+      - key: AZURE_OPENAI_BASE_URL
+        value: "https://menuplanner3-resource.services.ai.azure.com/api/projects/menuplanner3/openai/v1"
+      - key: AZURE_OPENAI_MODEL
+        value: "gpt-4o"
 
 databases:
   - name: menu-planner-db

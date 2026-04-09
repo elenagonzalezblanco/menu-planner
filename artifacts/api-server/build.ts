@@ -13,7 +13,6 @@ const allowlist = [
   "@azure/identity",
   "@google/generative-ai",
   "axios",
-  "compression",
   "connect-pg-simple",
   "cookie-parser",
   "cors",

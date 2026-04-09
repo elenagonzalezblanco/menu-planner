@@ -9,7 +9,7 @@ COPY lib/api-client-react/package.json lib/api-client-react/
 COPY lib/integrations-openai-ai-server/package.json lib/integrations-openai-ai-server/
 COPY artifacts/api-server/package.json artifacts/api-server/
 COPY artifacts/menu-semanal/package.json artifacts/menu-semanal/
-RUN pnpm install --no-frozen-lockfile --ignore-scripts --no-optional
+RUN pnpm install --no-frozen-lockfile
 
 # --- Build backend ---
 FROM node:20-slim AS build-server

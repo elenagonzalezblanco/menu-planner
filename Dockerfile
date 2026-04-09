@@ -36,6 +36,8 @@ COPY . .
 WORKDIR /app/artifacts/menu-semanal
 ENV VITE_API_URL=""
 RUN pnpm build
+# Pre-compress large assets for faster serving
+RUN find dist/assets -type f \( -name "*.js" -o -name "*.css" \) -exec gzip -k -9 {} \;
 
 # --- Runtime ---
 FROM node:20-slim AS runtime

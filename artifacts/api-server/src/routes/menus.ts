@@ -240,9 +240,9 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown.`;
 
     let menuDays: DayMenu[];
 
-    // Try AI generation first; fall back to deterministic if no key or error
-    const hasKey = !!process.env.AZURE_CLIENT_ID;
-    if (hasKey) {
+    // Try AI generation first; fall back to deterministic on error
+    const aiEnabled = !!process.env.AZURE_OPENAI_ENDPOINT || !!process.env.AZURE_OPENAI_BASE_URL;
+    if (aiEnabled) {
       try {
         const client = await getClient();
         const completion = await client.chat.completions.create({

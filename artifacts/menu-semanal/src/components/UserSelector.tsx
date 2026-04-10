@@ -149,10 +149,11 @@ interface LoginFormProps {
   onLoggedIn: () => void;
   onCancel?: () => void;
   onRegister: () => void;
+  onForgotPassword: () => void;
   showCancel?: boolean;
 }
 
-function LoginForm({ onLoggedIn, onCancel, onRegister, showCancel }: LoginFormProps) {
+function LoginForm({ onLoggedIn, onCancel, onRegister, onForgotPassword, showCancel }: LoginFormProps) {
   const { loginUser, setCurrentUser } = useUser();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -206,6 +207,13 @@ function LoginForm({ onLoggedIn, onCancel, onRegister, showCancel }: LoginFormPr
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             className="text-base h-12 rounded-xl"
           />
+          <button
+            type="button"
+            className="text-xs text-primary hover:underline self-end -mt-1"
+            onClick={onForgotPassword}
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
         </div>
         <div className="flex gap-3 pt-2">
           {showCancel && onCancel && (
@@ -239,11 +247,196 @@ interface UserSelectorProps {
   /** When true, renders as a modal overlay (for profile switching). When false/undefined, renders as full-screen splash. */
   mode?: "splash" | "switcher";
   onClose?: () => void;
+  /** If a reset token is present in the URL, pass it here to show the reset form */
+  resetToken?: string | null;
+  onResetComplete?: () => void;
 }
 
-export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
+function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit() {
+    if (!email.trim()) return;
+    setError("");
+    setLoading(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+      const res = await fetch(`${API_URL}/api/users/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Error al enviar");
+      }
+      setSent(true);
+    } catch (err: any) {
+      setError(err.message || "Error al enviar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <>
+        <div className="text-center flex flex-col gap-1">
+          <div className="text-5xl mb-2">📧</div>
+          <h1 className="font-display font-bold text-3xl">Revisa tu email</h1>
+          <p className="text-muted-foreground">
+            Si existe una cuenta con <strong>{email}</strong>, recibirás un enlace para restablecer tu contraseña.
+          </p>
+        </div>
+        <Button onClick={onBack} variant="outline" className="w-full rounded-xl h-12">
+          Volver al inicio de sesión
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="text-center flex flex-col gap-1">
+        <div className="text-5xl mb-2">🔑</div>
+        <h1 className="font-display font-bold text-3xl">¿Olvidaste tu contraseña?</h1>
+        <p className="text-muted-foreground">Introduce tu email y te enviaremos un enlace para restablecerla.</p>
+      </div>
+      <div className="flex flex-col gap-5">
+        {error && (
+          <div className="text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-2">{error}</div>
+        )}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Email</label>
+          <Input
+            type="email"
+            placeholder="tu@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            autoFocus
+            className="text-base h-12 rounded-xl"
+          />
+        </div>
+        <div className="flex gap-3 pt-2">
+          <Button variant="outline" onClick={onBack} className="flex-1 rounded-xl h-12">
+            Volver
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!email.trim() || loading}
+            className="flex-1 rounded-xl h-12 text-base font-semibold"
+          >
+            {loading ? "Enviando..." : "Enviar enlace"}
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ResetPasswordForm({ token, onSuccess, onBack }: { token: string; onSuccess: () => void; onBack: () => void }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function handleSubmit() {
+    if (password.length < 4) { setError("La contraseña debe tener al menos 4 caracteres"); return; }
+    if (password !== confirm) { setError("Las contraseñas no coinciden"); return; }
+    setError("");
+    setLoading(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+      const res = await fetch(`${API_URL}/api/users/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Error al restablecer");
+      setDone(true);
+    } catch (err: any) {
+      setError(err.message || "Error al restablecer");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <>
+        <div className="text-center flex flex-col gap-1">
+          <div className="text-5xl mb-2">✅</div>
+          <h1 className="font-display font-bold text-3xl">¡Contraseña cambiada!</h1>
+          <p className="text-muted-foreground">Ya puedes iniciar sesión con tu nueva contraseña.</p>
+        </div>
+        <Button onClick={onSuccess} className="w-full rounded-xl h-12 text-base font-semibold">
+          Iniciar sesión
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="text-center flex flex-col gap-1">
+        <div className="text-5xl mb-2">🔐</div>
+        <h1 className="font-display font-bold text-3xl">Nueva contraseña</h1>
+        <p className="text-muted-foreground">Elige tu nueva contraseña.</p>
+      </div>
+      <div className="flex flex-col gap-5">
+        {error && (
+          <div className="text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-2">{error}</div>
+        )}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Nueva contraseña</label>
+          <Input
+            type="password"
+            placeholder="Mínimo 4 caracteres"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+            className="text-base h-12 rounded-xl"
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Repetir contraseña</label>
+          <Input
+            type="password"
+            placeholder="Repite tu contraseña"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            className="text-base h-12 rounded-xl"
+          />
+        </div>
+        <div className="flex gap-3 pt-2">
+          <Button variant="outline" onClick={onBack} className="flex-1 rounded-xl h-12">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={password.length < 4 || !confirm || loading}
+            className="flex-1 rounded-xl h-12 text-base font-semibold"
+          >
+            {loading ? "Guardando..." : "Cambiar contraseña"}
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function UserSelector({ mode = "splash", onClose, resetToken, onResetComplete }: UserSelectorProps) {
   const { allUsers, setCurrentUser } = useUser();
-  const [view, setView] = useState<"welcome" | "login" | "register">("welcome");
+  const [view, setView] = useState<"welcome" | "login" | "register" | "forgot" | "reset">(
+    resetToken ? "reset" : "welcome"
+  );
 
   function handleUserCreated() {
     onClose?.();
@@ -295,6 +488,7 @@ export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
             mode === "switcher" && onClose ? onClose : undefined
           }
           onRegister={() => setView("register")}
+          onForgotPassword={() => setView("forgot")}
           showCancel={mode === "switcher"}
         />
       )}
@@ -329,6 +523,26 @@ export function UserSelector({ mode = "splash", onClose }: UserSelectorProps) {
             </p>
           )}
         </>
+      )}
+
+      {/* ── Forgot Password ── */}
+      {effectiveView === "forgot" && (
+        <ForgotPasswordForm onBack={() => setView("login")} />
+      )}
+
+      {/* ── Reset Password (from email link) ── */}
+      {effectiveView === "reset" && resetToken && (
+        <ResetPasswordForm
+          token={resetToken}
+          onSuccess={() => {
+            setView("login");
+            onResetComplete?.();
+          }}
+          onBack={() => {
+            setView("login");
+            onResetComplete?.();
+          }}
+        />
       )}
     </div>
   );

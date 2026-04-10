@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -38,8 +39,29 @@ function Router() {
 
 function AppShell() {
   const { currentUser, isLoading } = useUser();
+  const [resetToken, setResetToken] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("reset");
+  });
 
   if (isLoading) return null;
+
+  // Show reset password form if token is present (even if logged in)
+  if (resetToken) {
+    return (
+      <UserSelector
+        mode="splash"
+        resetToken={resetToken}
+        onResetComplete={() => {
+          setResetToken(null);
+          // Clean the URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete("reset");
+          window.history.replaceState({}, "", url.pathname + url.hash);
+        }}
+      />
+    );
+  }
 
   if (!currentUser) {
     return <UserSelector mode="splash" />;

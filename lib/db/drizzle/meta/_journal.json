@@ -8,6 +8,13 @@
       "when": 1775342263817,
       "tag": "0000_amused_doorman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775845441470,
+      "tag": "0001_bizarre_starhawk",
+      "breakpoints": true
     }
   ]
 }

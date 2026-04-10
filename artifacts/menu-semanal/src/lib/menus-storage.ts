@@ -8,6 +8,8 @@ export type { Recipe };
 export interface MealPlan {
   primero?: Recipe;
   segundo?: Recipe;
+  primero2?: Recipe;
+  segundo2?: Recipe;
 }
 
 export interface DayMenu {

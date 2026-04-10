@@ -10,4 +10,6 @@ import type { Recipe } from "./recipe";
 export interface MealPlan {
   primero?: Recipe;
   segundo?: Recipe;
+  primero2?: Recipe;
+  segundo2?: Recipe;
 }

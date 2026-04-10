@@ -18,10 +18,19 @@ export const savedMenusTable = pgTable("saved_menus", {
   savedAt: timestamp("saved_at").defaultNow().notNull(),
 });
 
+export type MealSlot = { id: number; name: string } | null;
+
+export type MealPlanData = {
+  primero?: MealSlot;
+  segundo?: MealSlot;
+  primero2?: MealSlot;
+  segundo2?: MealSlot;
+};
+
 export type WeeklyMenuDay = {
   day: string;
-  lunch: { primero?: { id: number; name: string } | null; segundo?: { id: number; name: string } | null };
-  dinner: { primero?: { id: number; name: string } | null; segundo?: { id: number; name: string } | null };
+  lunch: MealPlanData;
+  dinner: MealPlanData;
 };
 
 export const insertWeeklyMenuSchema = createInsertSchema(weeklyMenusTable).omit({ id: true, createdAt: true });

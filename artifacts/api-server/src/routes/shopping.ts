@@ -21,7 +21,7 @@ router.post("/shopping-list/generate", async (req: AuthenticatedRequest, res) =>
 
     const days = menu.days as any[];
     for (const day of days) {
-      const meals = [day.lunch?.primero, day.lunch?.segundo, day.dinner?.primero, day.dinner?.primero2, day.dinner?.segundo, day.dinner?.segundo2];
+      const meals = [day.lunch?.primero, day.lunch?.segundo, day.lunch?.primero2, day.lunch?.segundo2, day.dinner?.primero, day.dinner?.primero2, day.dinner?.segundo, day.dinner?.segundo2];
       for (const meal of meals) {
         if (!meal?.id) continue;
         const recipe = recipeMap.get(Number(meal.id));
@@ -67,7 +67,7 @@ router.get("/shopping-list/:menuId", async (req: AuthenticatedRequest, res) => {
 
     const days = menu.days as any[];
     for (const day of days) {
-      const meals = [day.lunch?.primero, day.lunch?.segundo, day.dinner?.primero, day.dinner?.primero2, day.dinner?.segundo, day.dinner?.segundo2];
+      const meals = [day.lunch?.primero, day.lunch?.segundo, day.lunch?.primero2, day.lunch?.segundo2, day.dinner?.primero, day.dinner?.primero2, day.dinner?.segundo, day.dinner?.segundo2];
       for (const meal of meals) {
         if (!meal?.id) continue;
         const recipe = recipeMap.get(Number(meal.id));

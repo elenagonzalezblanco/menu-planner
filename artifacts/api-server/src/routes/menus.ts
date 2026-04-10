@@ -9,8 +9,8 @@ const router: IRouter = Router();
 
 type DayMenu = {
   day: string;
-  lunch: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null };
-  dinner: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null };
+  lunch: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null; primero2?: { id: number; name: string } | null; segundo2?: { id: number; name: string } | null };
+  dinner: { primero: { id: number; name: string } | null; segundo: { id: number; name: string } | null; primero2?: { id: number; name: string } | null; segundo2?: { id: number; name: string } | null };
 };
 
 function getClient() {
@@ -162,13 +162,19 @@ function enforceConstraints(
     if ((c.noDinnerPrimero || c.noAnywhere) && dinner) {
       dinner = { ...dinner, primero: null };
     }
-    // No fish at lunch — remove fish recipes from lunch.segundo
+    // No fish at lunch — remove fish recipes from lunch.segundo/segundo2
     if (c.noFishAtLunch && lunch?.segundo && isFishRecipe(lunch.segundo.name)) {
       lunch = { ...lunch, segundo: null };
     }
-    // No fish at dinner — remove fish recipes from dinner.segundo
+    if (c.noFishAtLunch && lunch?.segundo2 && isFishRecipe(lunch.segundo2.name)) {
+      lunch = { ...lunch, segundo2: null };
+    }
+    // No fish at dinner — remove fish recipes from dinner.segundo/segundo2
     if (c.noFishAtDinner && dinner?.segundo && isFishRecipe(dinner.segundo.name)) {
       dinner = { ...dinner, segundo: null };
+    }
+    if (c.noFishAtDinner && dinner?.segundo2 && isFishRecipe(dinner.segundo2.name)) {
+      dinner = { ...dinner, segundo2: null };
     }
 
     return { ...day, lunch, dinner };
@@ -379,10 +385,16 @@ router.post("/menus/chat", async (req: AuthenticatedRequest, res) => {
     const menuContext = currentMenu
       ? currentMenu.days.map((d: any) => {
           const lp = d.lunch?.primero?.name ?? "—";
+          const lp2 = d.lunch?.primero2?.name ?? null;
           const ls = d.lunch?.segundo?.name ?? "—";
+          const ls2 = d.lunch?.segundo2?.name ?? null;
           const dp = d.dinner?.primero?.name ?? "—";
+          const dp2 = d.dinner?.primero2?.name ?? null;
           const ds = d.dinner?.segundo?.name ?? "—";
-          return `  ${d.day}: Comida=[${lp} | ${ls}]  Cena=[${dp} | ${ds}]`;
+          const ds2 = d.dinner?.segundo2?.name ?? null;
+          const lunchStr = `[${lp}${lp2 ? `, ${lp2}` : ""} | ${ls}${ls2 ? `, ${ls2}` : ""}]`;
+          const dinnerStr = `[${dp}${dp2 ? `, ${dp2}` : ""} | ${ds}${ds2 ? `, ${ds2}` : ""}]`;
+          return `  ${d.day}: Comida=${lunchStr}  Cena=${dinnerStr}`;
         }).join("\n")
       : "  (ningún menú todavía)";
 
@@ -504,10 +516,10 @@ async function enrichMenuWithRecipes(menu: any, allRecipes: any[]) {
   const days = (menu.days ?? []).map((day: any) => ({
     ...day,
     lunch: day.lunch
-      ? { primero: resolveRecipe(day.lunch.primero), segundo: resolveRecipe(day.lunch.segundo) }
+      ? { primero: resolveRecipe(day.lunch.primero), segundo: resolveRecipe(day.lunch.segundo), primero2: resolveRecipe(day.lunch.primero2), segundo2: resolveRecipe(day.lunch.segundo2) }
       : null,
     dinner: day.dinner
-      ? { primero: resolveRecipe(day.dinner.primero), segundo: resolveRecipe(day.dinner.segundo) }
+      ? { primero: resolveRecipe(day.dinner.primero), segundo: resolveRecipe(day.dinner.segundo), primero2: resolveRecipe(day.dinner.primero2), segundo2: resolveRecipe(day.dinner.segundo2) }
       : null,
   }));
 

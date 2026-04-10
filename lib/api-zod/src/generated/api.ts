@@ -133,6 +133,26 @@ export const GenerateMenuResponse = zod.object({
             createdAt: zod.date().optional(),
           })
           .optional(),
+        primero2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        segundo2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
       }),
       dinner: zod.object({
         primero: zod
@@ -146,6 +166,26 @@ export const GenerateMenuResponse = zod.object({
           })
           .optional(),
         segundo: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        primero2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        segundo2: zod
           .object({
             id: zod.number(),
             name: zod.string(),
@@ -190,6 +230,26 @@ export const ListMenusResponseItem = zod.object({
             createdAt: zod.date().optional(),
           })
           .optional(),
+        primero2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        segundo2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
       }),
       dinner: zod.object({
         primero: zod
@@ -203,6 +263,26 @@ export const ListMenusResponseItem = zod.object({
           })
           .optional(),
         segundo: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        primero2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        segundo2: zod
           .object({
             id: zod.number(),
             name: zod.string(),
@@ -252,6 +332,26 @@ export const GetMenuResponse = zod.object({
             createdAt: zod.date().optional(),
           })
           .optional(),
+        primero2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        segundo2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
       }),
       dinner: zod.object({
         primero: zod
@@ -265,6 +365,26 @@ export const GetMenuResponse = zod.object({
           })
           .optional(),
         segundo: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        primero2: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            category: zod.enum(["primero", "segundo", "otro"]),
+            ingredients: zod.array(zod.string()),
+            instructions: zod.string().optional(),
+            createdAt: zod.date().optional(),
+          })
+          .optional(),
+        segundo2: zod
           .object({
             id: zod.number(),
             name: zod.string(),

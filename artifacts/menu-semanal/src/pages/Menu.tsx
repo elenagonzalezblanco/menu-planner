@@ -899,7 +899,6 @@ function MealSection({
 
   const primeroRecipes = recipes.filter(r => r.category === "primero");
   const segundoRecipes = recipes.filter(r => r.category === "segundo" || r.category === "otro");
-  const isDinner = mealType === "dinner";
 
   return (
     <div className="p-5">
@@ -921,24 +920,24 @@ function MealSection({
             savingSlot={savingSlot} onSelect={r => onSlotChange(dayIdx, mealType, "primero", r)} />
         ) : null}
 
-        {/* Primero2 — solo en cena */}
-        {isDinner && (meal.primero2 ? (
-          <RecipeSlot label="Primero" recipe={meal.primero2} slotId={`${dayIdx}:dinner:primero2`}
-            slotKey={`${dayIdx}-dinner-primero2`} savingSlot={savingSlot} isEditing={isEditing}
+        {/* Primero2 */}
+        {meal.primero2 ? (
+          <RecipeSlot label="Primero" recipe={meal.primero2} slotId={`${dayIdx}:${mealType}:primero2`}
+            slotKey={`${dayIdx}-${mealType}-primero2`} savingSlot={savingSlot} isEditing={isEditing}
             recipes={primeroRecipes} canClear labelClass="text-primary"
-            onSelect={r => onSlotChange(dayIdx, "dinner", "primero2", r)}
-            onClear={() => onSlotChange(dayIdx, "dinner", "primero2", null)} />
+            onSelect={r => onSlotChange(dayIdx, mealType, "primero2", r)}
+            onClear={() => onSlotChange(dayIdx, mealType, "primero2", null)} />
         ) : (meal.primero && isEditing) ? (
           <AddSlotButton label="+ Añadir otro primero" recipes={primeroRecipes}
-            slotId={`${dayIdx}:dinner:primero2`} slotKey={`${dayIdx}-dinner-primero2`}
-            savingSlot={savingSlot} onSelect={r => onSlotChange(dayIdx, "dinner", "primero2", r)} secondary />
-        ) : null)}
+            slotId={`${dayIdx}:${mealType}:primero2`} slotKey={`${dayIdx}-${mealType}-primero2`}
+            savingSlot={savingSlot} onSelect={r => onSlotChange(dayIdx, mealType, "primero2", r)} secondary />
+        ) : null}
 
         {/* Segundo */}
         {meal.segundo ? (
           <RecipeSlot label="Segundo" recipe={meal.segundo} slotId={`${dayIdx}:${mealType}:segundo`}
             slotKey={`${dayIdx}-${mealType}-segundo`} savingSlot={savingSlot} isEditing={isEditing}
-            recipes={segundoRecipes} canClear={isDinner} labelClass="text-muted-foreground"
+            recipes={segundoRecipes} canClear labelClass="text-muted-foreground"
             onSelect={r => onSlotChange(dayIdx, mealType, "segundo", r)}
             onClear={() => onSlotChange(dayIdx, mealType, "segundo", null)} />
         ) : isEditing ? (
@@ -947,18 +946,18 @@ function MealSection({
             savingSlot={savingSlot} onSelect={r => onSlotChange(dayIdx, mealType, "segundo", r)} />
         ) : null}
 
-        {/* Segundo2 — solo en cena */}
-        {isDinner && (meal.segundo2 ? (
-          <RecipeSlot label="Segundo" recipe={meal.segundo2} slotId={`${dayIdx}:dinner:segundo2`}
-            slotKey={`${dayIdx}-dinner-segundo2`} savingSlot={savingSlot} isEditing={isEditing}
+        {/* Segundo2 */}
+        {meal.segundo2 ? (
+          <RecipeSlot label="Segundo" recipe={meal.segundo2} slotId={`${dayIdx}:${mealType}:segundo2`}
+            slotKey={`${dayIdx}-${mealType}-segundo2`} savingSlot={savingSlot} isEditing={isEditing}
             recipes={segundoRecipes} canClear labelClass="text-muted-foreground"
-            onSelect={r => onSlotChange(dayIdx, "dinner", "segundo2", r)}
-            onClear={() => onSlotChange(dayIdx, "dinner", "segundo2", null)} />
+            onSelect={r => onSlotChange(dayIdx, mealType, "segundo2", r)}
+            onClear={() => onSlotChange(dayIdx, mealType, "segundo2", null)} />
         ) : (meal.segundo && isEditing) ? (
           <AddSlotButton label="+ Añadir otro segundo" recipes={segundoRecipes}
-            slotId={`${dayIdx}:dinner:segundo2`} slotKey={`${dayIdx}-dinner-segundo2`}
-            savingSlot={savingSlot} onSelect={r => onSlotChange(dayIdx, "dinner", "segundo2", r)} secondary />
-        ) : null)}
+            slotId={`${dayIdx}:${mealType}:segundo2`} slotKey={`${dayIdx}-${mealType}-segundo2`}
+            savingSlot={savingSlot} onSelect={r => onSlotChange(dayIdx, mealType, "segundo2", r)} secondary />
+        ) : null}
       </div>
     </div>
   );
@@ -1118,7 +1117,13 @@ function PrintCalendar({ days }: { days: DayPlan[] }) {
         </thead>
         <tbody>
           <PrintRow label="☀️ Comida" sublabel="Primero" days={days} getValue={d => d.lunch?.primero?.name ?? "—"} bgColor="#fff8f0" labelColor="#d35400" />
+          {days.some(d => d.lunch?.primero2) && (
+            <PrintRow label="" sublabel="Primero 2" days={days} getValue={d => d.lunch?.primero2?.name ?? "—"} bgColor="#fff8f0" labelColor="#d35400" />
+          )}
           <PrintRow label="" sublabel="Segundo" days={days} getValue={d => d.lunch?.segundo?.name ?? "—"} bgColor="#fff8f0" labelColor="#7f8c8d" />
+          {days.some(d => d.lunch?.segundo2) && (
+            <PrintRow label="" sublabel="Segundo 2" days={days} getValue={d => d.lunch?.segundo2?.name ?? "—"} bgColor="#fff8f0" labelColor="#7f8c8d" />
+          )}
           <PrintRow label="🌙 Cena" sublabel="Primero" days={days} getValue={d => d.dinner?.primero?.name ?? "—"} bgColor="#f0f4ff" labelColor="#2563eb" />
           {days.some(d => d.dinner?.primero2) && (
             <PrintRow label="" sublabel="Primero 2" days={days} getValue={d => d.dinner?.primero2?.name ?? "—"} bgColor="#f0f4ff" labelColor="#2563eb" />

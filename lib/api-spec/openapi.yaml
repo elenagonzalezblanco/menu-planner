@@ -328,6 +328,10 @@ components:
           $ref: "#/components/schemas/Recipe"
         segundo:
           $ref: "#/components/schemas/Recipe"
+        primero2:
+          $ref: "#/components/schemas/Recipe"
+        segundo2:
+          $ref: "#/components/schemas/Recipe"
       required: []
 
     WeeklyMenu:

@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { getListRecipesQueryKey } from "@workspace/api-client-react";
 import type { Recipe } from "@workspace/api-client-react";
 
 type Category = "primero" | "segundo" | "otro";
@@ -51,6 +53,7 @@ export default function RecipesPage() {
   const deleteRecipe = useDeleteRecipe();
   const updateRecipe = useUpdateRecipe();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const filteredRecipes = (recipes as Recipe[]).filter(r => {
     const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,6 +76,7 @@ export default function RecipesPage() {
         { id: editingRecipe.id, data: { ...formData, instructions: formData.instructions || "" } },
         {
           onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: getListRecipesQueryKey() });
             setEditingRecipe(null);
             toast({ title: "Receta actualizada", description: formData.name });
           },
@@ -84,6 +88,7 @@ export default function RecipesPage() {
         { data: { ...formData, instructions: formData.instructions || "" } },
         {
           onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: getListRecipesQueryKey() });
             setIsCreating(false);
             toast({ title: "Receta añadida", description: formData.name });
           },
@@ -332,7 +337,14 @@ function RecipeDialog({ open, onOpenChange, title, initialValues, isPending, onS
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), category, ingredients, instructions });
+    // Flush any pending text in the ingredient input so it's not lost
+    let finalIngredients = ingredients;
+    const pending = ingredientInput.trim();
+    if (pending) {
+      const parts = pending.split(",").map(s => s.trim()).filter(Boolean);
+      finalIngredients = [...finalIngredients, ...parts.filter(p => !finalIngredients.includes(p))];
+    }
+    onSave({ name: name.trim(), category, ingredients: finalIngredients, instructions });
   };
 
   const isValid = name.trim().length >= 2;

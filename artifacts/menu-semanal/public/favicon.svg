@@ -1,3 +1,19 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Plate -->
+  <circle cx="32" cy="34" r="26" fill="#E8602C"/>
+  <circle cx="32" cy="34" r="20" fill="#F4845F"/>
+  <circle cx="32" cy="34" r="14" fill="#FAC898"/>
+  <!-- Fork (left) -->
+  <g fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="8" x2="18" y2="28"/>
+    <line x1="14" y1="8" x2="14" y2="18"/>
+    <line x1="18" y1="8" x2="18" y2="18"/>
+    <line x1="22" y1="8" x2="22" y2="18"/>
+    <path d="M14 18 Q18 22 22 18"/>
+  </g>
+  <!-- Knife (right) -->
+  <g fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="46" y1="8" x2="46" y2="28"/>
+    <path d="M46 8 Q50 12 50 18 Q50 22 46 22"/>
+  </g>
 </svg>

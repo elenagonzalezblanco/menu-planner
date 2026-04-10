@@ -141,12 +141,24 @@ export function generateMenuPdf(
   y -= headerH;
 
   // ── Data rows ──
-  const rowDefs = [
+  const rowDefs: { label: string; sublabel: string; bg: string; getValue: (d: any) => string }[] = [
     { label: "Comida", sublabel: "Primero", bg: "1 0.97 0.94", getValue: (d: any) => d.lunch?.primero?.name ?? "" },
-    { label: "", sublabel: "Segundo", bg: "1 0.97 0.94", getValue: (d: any) => d.lunch?.segundo?.name ?? "" },
-    { label: "Cena", sublabel: "Primero", bg: "0.94 0.96 1", getValue: (d: any) => d.dinner?.primero?.name ?? "" },
-    { label: "", sublabel: "Segundo", bg: "0.94 0.96 1", getValue: (d: any) => d.dinner?.segundo?.name ?? "" },
   ];
+  if (days.some((d: any) => d.lunch?.primero2)) {
+    rowDefs.push({ label: "", sublabel: "Primero 2", bg: "1 0.97 0.94", getValue: (d: any) => d.lunch?.primero2?.name ?? "" });
+  }
+  rowDefs.push({ label: "", sublabel: "Segundo", bg: "1 0.97 0.94", getValue: (d: any) => d.lunch?.segundo?.name ?? "" });
+  if (days.some((d: any) => d.lunch?.segundo2)) {
+    rowDefs.push({ label: "", sublabel: "Segundo 2", bg: "1 0.97 0.94", getValue: (d: any) => d.lunch?.segundo2?.name ?? "" });
+  }
+  rowDefs.push({ label: "Cena", sublabel: "Primero", bg: "0.94 0.96 1", getValue: (d: any) => d.dinner?.primero?.name ?? "" });
+  if (days.some((d: any) => d.dinner?.primero2)) {
+    rowDefs.push({ label: "", sublabel: "Primero 2", bg: "0.94 0.96 1", getValue: (d: any) => d.dinner?.primero2?.name ?? "" });
+  }
+  rowDefs.push({ label: "", sublabel: "Segundo", bg: "0.94 0.96 1", getValue: (d: any) => d.dinner?.segundo?.name ?? "" });
+  if (days.some((d: any) => d.dinner?.segundo2)) {
+    rowDefs.push({ label: "", sublabel: "Segundo 2", bg: "0.94 0.96 1", getValue: (d: any) => d.dinner?.segundo2?.name ?? "" });
+  }
 
   for (const row of rowDefs) {
     // Label cell

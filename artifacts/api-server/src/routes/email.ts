@@ -76,9 +76,13 @@ router.post("/email/menu", async (req: AuthenticatedRequest, res) => {
           </thead>
           <tbody>
             ${mealRow("☀️ Comida", "Primero", "#fff8f0", d => d.lunch?.primero?.name)}
+            ${days.some((d: any) => d.lunch?.primero2) ? mealRow("", "Primero 2", "#fff8f0", d => d.lunch?.primero2?.name) : ""}
             ${mealRow("", "Segundo", "#fff8f0", d => d.lunch?.segundo?.name)}
+            ${days.some((d: any) => d.lunch?.segundo2) ? mealRow("", "Segundo 2", "#fff8f0", d => d.lunch?.segundo2?.name) : ""}
             ${mealRow("🌙 Cena", "Primero", "#f0f4ff", d => d.dinner?.primero?.name)}
+            ${days.some((d: any) => d.dinner?.primero2) ? mealRow("", "Primero 2", "#f0f4ff", d => d.dinner?.primero2?.name) : ""}
             ${mealRow("", "Segundo", "#f0f4ff", d => d.dinner?.segundo?.name)}
+            ${days.some((d: any) => d.dinner?.segundo2) ? mealRow("", "Segundo 2", "#f0f4ff", d => d.dinner?.segundo2?.name) : ""}
           </tbody>
         </table>
         <p style="color:#999;font-size:11px;text-align:center">La Cocina — Menu Planner</p>

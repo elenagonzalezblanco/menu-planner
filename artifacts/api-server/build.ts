@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 // which helps cold start times without risking some
 // packages that are not bundle compatible
 const allowlist = [
+  "@azure/communication-email",
   "@azure/identity",
   "@google/generative-ai",
   "axios",
@@ -30,7 +31,6 @@ const allowlist = [
   "openai",
   "passport",
   "passport-local",
-  "resend",
   "pg",
   "pino",
   "pino-http",

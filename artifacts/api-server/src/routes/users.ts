@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, usersTable, recipesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { createHash } from "crypto";
-import { Resend } from "resend";
+import { EmailClient } from "@azure/communication-email";
 import { DEFAULT_RECIPES } from "../lib/seed";
 
 const router: IRouter = Router();
@@ -18,32 +18,35 @@ function verifyPassword(password: string, hash: string): boolean {
 }
 
 async function sendWelcomeEmail(name: string, email: string) {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) return; // silently skip if not configured
+  const connStr = process.env.ACS_CONNECTION_STRING;
+  if (!connStr) return; // silently skip if not configured
   try {
-    const resend = new Resend(key);
-    await resend.emails.send({
-      from: "Menu Planner <onboarding@resend.dev>",
-      to: email,
-      subject: "🍽️ ¡Bienvenido/a a Los Menús de Elena!",
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-          <h1 style="color:#16a34a;margin-bottom:8px">🍽️ ¡Bienvenido/a, ${name}!</h1>
-          <p style="font-size:16px;color:#374151">Tu cuenta ha sido creada correctamente.</p>
-          <p style="font-size:16px;color:#374151">Ya puedes empezar a planificar tus menús semanales con ayuda de la IA.</p>
-          <div style="margin:24px 0;padding:16px;background:#f0fdf4;border-radius:12px">
-            <p style="margin:0;font-size:14px;color:#166534"><strong>¿Qué puedes hacer?</strong></p>
-            <ul style="margin:8px 0 0;padding-left:20px;color:#166534;font-size:14px">
-              <li>Generar menús semanales automáticamente</li>
-              <li>Pedir sugerencias al agente de IA</li>
-              <li>Crear tu lista de la compra</li>
-              <li>Enviar todo a tu email</li>
-            </ul>
+    const client = new EmailClient(connStr);
+    const poller = await client.beginSend({
+      senderAddress: "DoNotReply@a386371c-ce60-494f-b8ab-bd686c6f096e.azurecomm.net",
+      content: {
+        subject: "🍽️ ¡Bienvenido/a a Los Menús de Elena!",
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+            <h1 style="color:#16a34a;margin-bottom:8px">🍽️ ¡Bienvenido/a, ${name}!</h1>
+            <p style="font-size:16px;color:#374151">Tu cuenta ha sido creada correctamente.</p>
+            <p style="font-size:16px;color:#374151">Ya puedes empezar a planificar tus menús semanales con ayuda de la IA.</p>
+            <div style="margin:24px 0;padding:16px;background:#f0fdf4;border-radius:12px">
+              <p style="margin:0;font-size:14px;color:#166534"><strong>¿Qué puedes hacer?</strong></p>
+              <ul style="margin:8px 0 0;padding-left:20px;color:#166534;font-size:14px">
+                <li>Generar menús semanales automáticamente</li>
+                <li>Pedir sugerencias al agente de IA</li>
+                <li>Crear tu lista de la compra</li>
+                <li>Enviar todo a tu email</li>
+              </ul>
+            </div>
+            <p style="color:#6b7280;font-size:12px">Enviado desde Menu Planner</p>
           </div>
-          <p style="color:#6b7280;font-size:12px">Enviado desde Menu Planner</p>
-        </div>
-      `,
+        `,
+      },
+      recipients: { to: [{ address: email }] },
     });
+    await poller.pollUntilDone();
   } catch (err) {
     console.error("Welcome email error:", err);
   }

@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@azure/communication-email": "^1.1.0",
     "@azure/identity": "^4.13.1",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",

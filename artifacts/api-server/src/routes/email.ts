@@ -1,18 +1,28 @@
 import { Router, type IRouter } from "express";
-import { Resend } from "resend";
+import { EmailClient } from "@azure/communication-email";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-function getResend() {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error("RESEND_API_KEY not configured");
-  return new Resend(key);
+function getEmailClient() {
+  const connStr = process.env.ACS_CONNECTION_STRING;
+  if (!connStr) throw new Error("ACS_CONNECTION_STRING not configured");
+  return new EmailClient(connStr);
 }
 
-const FROM_EMAIL = "Menu Planner <onboarding@resend.dev>";
+const SENDER_ADDRESS = "DoNotReply@a386371c-ce60-494f-b8ab-bd686c6f096e.azurecomm.net";
+
+async function sendEmail(to: string, subject: string, html: string) {
+  const client = getEmailClient();
+  const poller = await client.beginSend({
+    senderAddress: SENDER_ADDRESS,
+    content: { subject, html },
+    recipients: { to: [{ address: to }] },
+  });
+  return poller.pollUntilDone();
+}
 
 // Send menu by email
 router.post("/email/menu", async (req: AuthenticatedRequest, res) => {
@@ -56,12 +66,7 @@ router.post("/email/menu", async (req: AuthenticatedRequest, res) => {
       </div>
     `;
 
-    await getResend().emails.send({
-      from: FROM_EMAIL,
-      to: user[0].email,
-      subject: subject ?? "🍽️ Tu Menú Semanal",
-      html,
-    });
+    await sendEmail(user[0].email, subject ?? "🍽️ Tu Menú Semanal", html);
 
     res.json({ ok: true });
   } catch (err) {
@@ -103,12 +108,7 @@ router.post("/email/shopping", async (req: AuthenticatedRequest, res) => {
       </div>
     `;
 
-    await getResend().emails.send({
-      from: FROM_EMAIL,
-      to: user[0].email,
-      subject: "🛒 Lista de la Compra",
-      html,
-    });
+    await sendEmail(user[0].email, "🛒 Lista de la Compra", html);
 
     res.json({ ok: true });
   } catch (err) {

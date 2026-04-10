@@ -21,7 +21,12 @@ async function sendEmail(to: string, subject: string, html: string) {
     content: { subject, html },
     recipients: { to: [{ address: to }] },
   });
-  return poller.pollUntilDone();
+  const result = await poller.pollUntilDone();
+  console.log("ACS email result:", JSON.stringify({ id: result.id, status: result.status, to, subject }));
+  if (result.status !== "Succeeded") {
+    throw new Error(`ACS email status: ${result.status} (${result.id})`);
+  }
+  return result;
 }
 
 // Send menu by email

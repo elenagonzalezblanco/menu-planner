@@ -97,9 +97,9 @@ router.get("/menus/:id/pdf", async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// ── Minimal PDF generator (no external deps) ──
+// ── Minimal PDF generator (no external deps) — table format matching print view ──
 
-function generateMenuPdf(
+export function generateMenuPdf(
   title: string,
   days: { day: string; lunch: any; dinner: any }[],
   date: Date | string,
@@ -108,18 +108,100 @@ function generateMenuPdf(
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
-  // Build table rows
-  const rows = days.map((d) => {
-    const lp = d.lunch?.primero?.name ?? "—";
-    const ls = d.lunch?.segundo?.name ?? "—";
-    const dp = d.dinner?.primero?.name ?? "—";
-    const ds = d.dinner?.segundo?.name ?? "—";
-    const lunchText = lp !== "—" ? `${lp} + ${ls}` : ls;
-    const dinnerText = dp !== "—" ? `${dp} + ${ds}` : ds;
-    return { day: d.day, lunch: lunchText, dinner: dinnerText };
-  });
+  const pageW = 842; // A4 landscape
+  const pageH = 595;
+  const margin = 40;
+  const tableW = pageW - 2 * margin;
+  const labelColW = 70;
+  const dayColW = (tableW - labelColW) / days.length;
 
-  // We generate a simple PDF manually (PDF 1.4 spec, no deps)
+  // Build content stream
+  const lines: string[] = [];
+
+  // Title
+  lines.push("BT", `/F2 16 Tf`, `${margin} ${pageH - 40} Td`, `(${pe(title)}) Tj`, "ET");
+  lines.push("BT", `/F1 9 Tf`, `0.4 0.4 0.4 rg`, `${margin} ${pageH - 55} Td`, `(${pe(dateStr)}) Tj`, `0 0 0 rg`, "ET");
+
+  let y = pageH - 80;
+  const rowH = 28;
+  const headerH = 30;
+
+  // ── Table header (days) ──
+  // Empty label cell
+  drawRect(lines, margin, y - headerH, labelColW, headerH, "0.96 0.96 0.96");
+  drawBorder(lines, margin, y - headerH, labelColW, headerH);
+
+  // Day headers (orange background)
+  for (let i = 0; i < days.length; i++) {
+    const x = margin + labelColW + i * dayColW;
+    drawRect(lines, x, y - headerH, dayColW, headerH, "0.91 0.38 0.17"); // #E8602C
+    drawBorder(lines, x, y - headerH, dayColW, headerH);
+    drawText(lines, x + dayColW / 2, y - headerH + 10, days[i].day, 10, true, "1 1 1");
+  }
+  y -= headerH;
+
+  // ── Data rows ──
+  const rowDefs = [
+    { label: "Comida", sublabel: "Primero", bg: "1 0.97 0.94", getValue: (d: any) => d.lunch?.primero?.name ?? "" },
+    { label: "", sublabel: "Segundo", bg: "1 0.97 0.94", getValue: (d: any) => d.lunch?.segundo?.name ?? "" },
+    { label: "Cena", sublabel: "Primero", bg: "0.94 0.96 1", getValue: (d: any) => d.dinner?.primero?.name ?? "" },
+    { label: "", sublabel: "Segundo", bg: "0.94 0.96 1", getValue: (d: any) => d.dinner?.segundo?.name ?? "" },
+  ];
+
+  for (const row of rowDefs) {
+    // Label cell
+    drawRect(lines, margin, y - rowH, labelColW, rowH, "0.97 0.97 0.97");
+    drawBorder(lines, margin, y - rowH, labelColW, rowH);
+    if (row.label) {
+      drawText(lines, margin + labelColW - 5, y - 10, row.label, 9, true, "0.4 0.26 0", "right");
+    }
+    drawText(lines, margin + labelColW - 5, y - rowH + 6, row.sublabel, 7, false, "0.5 0.5 0.5", "right");
+
+    // Day cells
+    for (let i = 0; i < days.length; i++) {
+      const x = margin + labelColW + i * dayColW;
+      const val = row.getValue(days[i]);
+      drawRect(lines, x, y - rowH, dayColW, rowH, row.bg);
+      drawBorder(lines, x, y - rowH, dayColW, rowH);
+      if (val) {
+        // Truncate long recipe names and split if needed
+        const display = val.length > 20 ? val.slice(0, 19) + "..." : val;
+        drawText(lines, x + dayColW / 2, y - rowH / 2 - 3, display, 8, false, "0.1 0.1 0.1");
+      }
+    }
+    y -= rowH;
+  }
+
+  // Footer
+  lines.push("BT", `/F1 7 Tf`, `0.6 0.6 0.6 rg`,
+    `${margin} 25 Td`, `(Menu Planner - La Cocina - generado automaticamente) Tj`,
+    `0 0 0 rg`, "ET");
+
+  return buildPdf(lines, pageW, pageH);
+}
+
+function drawRect(lines: string[], x: number, y: number, w: number, h: number, rgbColor: string) {
+  lines.push(`${rgbColor} rg`, `${x} ${y} ${w} ${h} re f`, `0 0 0 rg`);
+}
+
+function drawBorder(lines: string[], x: number, y: number, w: number, h: number) {
+  lines.push(`0.82 0.82 0.82 RG`, `0.5 w`, `${x} ${y} ${w} ${h} re S`, `0 0 0 RG`, `1 w`);
+}
+
+function drawText(lines: string[], x: number, y: number, text: string, size: number, bold: boolean, color: string, align: string = "center") {
+  const font = bold ? "/F2" : "/F1";
+  // Approximate text width for centering (rough: 0.5 * size per char)
+  const charW = size * 0.45;
+  const textW = text.length * charW;
+  let tx = x;
+  if (align === "center") tx = x - textW / 2;
+  else if (align === "right") tx = x - textW - 3;
+
+  lines.push("BT", `${font} ${size} Tf`, `${color} rg`, `${tx} ${y} Td`, `(${pe(text)}) Tj`, `0 0 0 rg`, "ET");
+}
+
+function buildPdf(contentLines: string[], pageW: number, pageH: number): Buffer {
+  const streamContent = contentLines.join("\n");
   const objects: string[] = [];
   let objCount = 0;
 
@@ -129,120 +211,17 @@ function generateMenuPdf(
     return objCount;
   }
 
-  // Catalog
-  addObj("<< /Type /Catalog /Pages 2 0 R >>"); // obj 1
-  // Pages
-  addObj("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"); // obj 2
-
-  // Build page content stream
-  const lines: string[] = [];
-  const pageW = 595; // A4
-  const margin = 50;
-  let y = 780;
-
-  // Title
-  lines.push("BT");
-  lines.push(`/F1 18 Tf`);
-  lines.push(`${margin} ${y} Td`);
-  lines.push(`(${pdfEscape(title)}) Tj`);
-  lines.push("ET");
-  y -= 22;
-
-  // Date
-  lines.push("BT");
-  lines.push(`/F1 10 Tf`);
-  lines.push(`${margin} ${y} Td`);
-  lines.push(`(${pdfEscape(dateStr)}) Tj`);
-  lines.push("ET");
-  y -= 30;
-
-  // Table header
-  const colDay = margin;
-  const colLunch = 150;
-  const colDinner = 370;
-
-  // Header line
-  lines.push(`${margin} ${y + 2} m ${pageW - margin} ${y + 2} l S`);
-  lines.push("BT");
-  lines.push(`/F1 11 Tf`);
-  lines.push(`${colDay} ${y - 12} Td (Dia) Tj`);
-  lines.push("ET");
-  lines.push("BT");
-  lines.push(`/F1 11 Tf`);
-  lines.push(`${colLunch} ${y - 12} Td (Comida) Tj`);
-  lines.push("ET");
-  lines.push("BT");
-  lines.push(`/F1 11 Tf`);
-  lines.push(`${colDinner} ${y - 12} Td (Cena) Tj`);
-  lines.push("ET");
-  y -= 16;
-  lines.push(`${margin} ${y} m ${pageW - margin} ${y} l S`);
-  y -= 6;
-
-  // Data rows
-  for (const row of rows) {
-    y -= 18;
-    if (y < 60) break; // page overflow safety
-
-    lines.push("BT");
-    lines.push(`/F1 10 Tf`);
-    lines.push(`${colDay} ${y} Td (${pdfEscape(row.day)}) Tj`);
-    lines.push("ET");
-
-    lines.push("BT");
-    lines.push(`/F1 10 Tf`);
-    lines.push(`${colLunch} ${y} Td (${pdfEscape(truncate(row.lunch, 35))}) Tj`);
-    lines.push("ET");
-
-    lines.push("BT");
-    lines.push(`/F1 10 Tf`);
-    lines.push(`${colDinner} ${y} Td (${pdfEscape(truncate(row.dinner, 35))}) Tj`);
-    lines.push("ET");
-
-    y -= 4;
-    lines.push(`0.85 0.85 0.85 RG`);
-    lines.push(`${margin} ${y} m ${pageW - margin} ${y} l S`);
-    lines.push(`0 0 0 RG`);
-  }
-
-  // Footer
-  y -= 30;
-  lines.push("BT");
-  lines.push(`/F1 8 Tf`);
-  lines.push(`0.5 0.5 0.5 rg`);
-  lines.push(`${margin} ${Math.max(y, 30)} Td (Menu Planner - generado automaticamente) Tj`);
-  lines.push(`0 0 0 rg`);
-  lines.push("ET");
-
-  const streamContent = lines.join("\n");
-  const streamObj = addObj(
-    `<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream`
-  ); // obj 3 = stream (but we need page first)
-
-  // Actually, let me reorder: page=3, stream=4
-  // Reset and redo
-  objects.length = 0;
-  objCount = 0;
-
   addObj("<< /Type /Catalog /Pages 2 0 R >>"); // 1
   addObj("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"); // 2
-
-  const streamId = objCount + 2; // will be 4
   addObj(
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} 842] ` +
-    `/Contents ${streamId} 0 R ` +
-    `/Resources << /Font << /F1 ${streamId + 1} 0 R >> >> >>`
-  ); // 3 = page
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] ` +
+    `/Contents 4 0 R ` +
+    `/Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>`
+  ); // 3
+  addObj(`<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream`); // 4
+  addObj(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`); // 5
+  addObj(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`); // 6
 
-  addObj(
-    `<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream`
-  ); // 4 = stream
-
-  addObj(
-    `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`
-  ); // 5 = font
-
-  // Build PDF file
   const header = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
   const offsets: number[] = [];
   let body = "";
@@ -252,25 +231,20 @@ function generateMenuPdf(
   }
 
   const xrefOffset = header.length + body.length;
-  let xref = `xref\n0 ${objCount + 1}\n`;
-  xref += `0000000000 65535 f \n`;
+  let xref = `xref\n0 ${objCount + 1}\n0000000000 65535 f \n`;
   for (const off of offsets) {
     xref += `${String(off).padStart(10, "0")} 00000 n \n`;
   }
 
-  const trailer =
-    `trailer\n<< /Size ${objCount + 1} /Root 1 0 R >>\n` +
-    `startxref\n${xrefOffset}\n%%EOF`;
-
+  const trailer = `trailer\n<< /Size ${objCount + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
   return Buffer.from(header + body + xref + trailer, "latin1");
 }
 
-function pdfEscape(s: string): string {
+function pe(s: string): string {
   return s
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
     .replace(/\)/g, "\\)")
-    // Replace non-latin1 chars with closest ASCII
     .replace(/á/g, "a").replace(/é/g, "e").replace(/í/g, "i")
     .replace(/ó/g, "o").replace(/ú/g, "u").replace(/ñ/g, "n")
     .replace(/Á/g, "A").replace(/É/g, "E").replace(/Í/g, "I")
@@ -278,10 +252,6 @@ function pdfEscape(s: string): string {
     .replace(/ü/g, "u").replace(/Ü/g, "U")
     .replace(/—/g, "-").replace(/–/g, "-")
     .replace(/[^\x20-\x7E]/g, "?");
-}
-
-function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max - 1) + "…".replace(/…/g, "...") : s;
 }
 
 export default router;

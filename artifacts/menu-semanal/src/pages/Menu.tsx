@@ -271,6 +271,28 @@ export default function MenuPage() {
     }
   };
 
+  const downloadMenuPdf = async () => {
+    if (!latestMenu) return;
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+    try {
+      const res = await fetch(`${API_URL}/api/menus/${latestMenu.id}/pdf`, {
+        headers: { "X-User-Id": String(currentUser?.id ?? "") },
+      });
+      if (!res.ok) throw new Error("Error al generar PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `menu-semanal.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "PDF descargado" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error";
+      toast({ title: msg, variant: "destructive" });
+    }
+  };
+
   // ── AI Chat handlers ──
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -454,6 +476,14 @@ export default function MenuPage() {
                 >
                   <Printer className="w-4 h-4" />
                   Imprimir
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-xl px-4 border-border/60 gap-2"
+                  onClick={downloadMenuPdf}
+                >
+                  <Download className="w-4 h-4" />
+                  PDF
                 </Button>
                 <Button
                   variant="outline"

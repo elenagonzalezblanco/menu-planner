@@ -308,7 +308,7 @@ router.get("/menus/:id", async (req: AuthenticatedRequest, res) => {
     const [menu] = await db.select().from(weeklyMenusTable)
       .where(and(eq(weeklyMenusTable.id, id), eq(weeklyMenusTable.userId, req.user!.id)));
     if (!menu) { res.status(404).json({ error: "Menu not found" }); return; }
-    const allRecipes = await db.select().from(recipesTable);
+    const allRecipes = await db.select().from(recipesTable).where(eq(recipesTable.userId, req.user!.id));
     const enriched = await enrichMenuWithRecipes(menu, allRecipes);
     res.json(enriched);
   } catch (err) {
@@ -327,7 +327,7 @@ router.patch("/menus/:id", async (req: AuthenticatedRequest, res) => {
       .where(and(eq(weeklyMenusTable.id, id), eq(weeklyMenusTable.userId, req.user!.id)))
       .returning();
     if (!updated) { res.status(404).json({ error: "Menu not found" }); return; }
-    const allRecipes = await db.select().from(recipesTable);
+    const allRecipes = await db.select().from(recipesTable).where(eq(recipesTable.userId, req.user!.id));
     const enriched = await enrichMenuWithRecipes(updated, allRecipes);
     res.json(enriched);
   } catch (err) {

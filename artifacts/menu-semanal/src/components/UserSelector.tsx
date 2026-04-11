@@ -444,10 +444,10 @@ export function UserSelector({ mode = "splash", onClose, resetToken, onResetComp
 
   const isFirstLaunch = allUsers.length === 0;
 
-  // In switcher mode, skip welcome screen
+  // In switcher mode, skip welcome screen but honour explicit navigation (forgot/reset)
   const effectiveView =
     mode === "switcher"
-      ? isFirstLaunch ? "register" : "login"
+      ? (view === "forgot" || view === "reset") ? view : (isFirstLaunch ? "register" : "login")
       : view;
 
   const content = (

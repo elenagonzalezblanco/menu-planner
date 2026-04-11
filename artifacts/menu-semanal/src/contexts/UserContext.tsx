@@ -4,9 +4,11 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import type { ReactNode } from "react";
 import { setBaseUrl, setUserIdGetter } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -56,14 +58,20 @@ export const UserContext = createContext<UserContextValue>({
 const CURRENT_USER_KEY = "current_user_id";
 
 export function UserProvider({ children }: { children: ReactNode }): React.ReactElement {
+  const queryClient = useQueryClient();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUserState] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const prevUserIdRef = useRef<number | null>(null);
 
-  // Set up the user ID getter for the API client
+  // Set up the user ID getter for the API client + clear cache on user switch
   useEffect(() => {
     setUserIdGetter(() => currentUser?.id ?? null);
-  }, [currentUser]);
+    if (currentUser && prevUserIdRef.current !== null && prevUserIdRef.current !== currentUser.id) {
+      queryClient.clear();
+    }
+    prevUserIdRef.current = currentUser?.id ?? null;
+  }, [currentUser, queryClient]);
 
   // Fetch users from API on mount
   useEffect(() => {
@@ -165,7 +173,8 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
   const logout = useCallback(() => {
     localStorage.removeItem(CURRENT_USER_KEY);
     setCurrentUserState(null);
-  }, []);
+    queryClient.clear();
+  }, [queryClient]);
 
   return (
     <UserContext.Provider

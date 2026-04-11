@@ -207,15 +207,17 @@ function LoginForm({ onLoggedIn, onCancel, onRegister, onForgotPassword, showCan
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             className="text-base h-12 rounded-xl"
           />
+        </div>
+        <div className="text-right -mt-1">
           <button
             type="button"
-            className="text-xs text-primary hover:underline self-end -mt-1"
+            className="text-sm text-primary/80 hover:text-primary hover:underline"
             onClick={onForgotPassword}
           >
             ¿Olvidaste tu contraseña?
           </button>
         </div>
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-3 pt-1">
           {showCancel && onCancel && (
             <Button variant="outline" onClick={onCancel} className="flex-1 rounded-xl h-12">
               Cancelar

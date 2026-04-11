@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,11 +8,11 @@ import NotFound from "@/pages/not-found";
 import { UserProvider, useUser } from "@/contexts/UserContext";
 import { UserSelector } from "@/components/UserSelector";
 
-// Pages
-import RecipesPage from "@/pages/Recipes";
-import MenuPage from "@/pages/Menu";
-import ShoppingPage from "@/pages/Shopping";
-import MercadonaPage from "@/pages/Mercadona";
+// Lazy-loaded pages for faster initial load
+const RecipesPage = lazy(() => import("@/pages/Recipes"));
+const MenuPage = lazy(() => import("@/pages/Menu"));
+const ShoppingPage = lazy(() => import("@/pages/Shopping"));
+const MercadonaPage = lazy(() => import("@/pages/Mercadona"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,13 +26,15 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Layout>
-      <Switch>
-        <Route path="/" component={RecipesPage} />
-        <Route path="/menu" component={MenuPage} />
-        <Route path="/shopping" component={ShoppingPage} />
-        <Route path="/mercadona" component={MercadonaPage} />
-        <Route component={NotFound} />
-      </Switch>
+      <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+        <Switch>
+          <Route path="/" component={RecipesPage} />
+          <Route path="/menu" component={MenuPage} />
+          <Route path="/shopping" component={ShoppingPage} />
+          <Route path="/mercadona" component={MercadonaPage} />
+          <Route component={NotFound} />
+        </Switch>
+      </Suspense>
     </Layout>
   );
 }

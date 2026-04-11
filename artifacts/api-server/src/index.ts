@@ -102,10 +102,10 @@ async function autoMigrate() {
   }
 }
 
-autoMigrate()
-  .then(() => seedIfEmpty())
-  .then(() => {
-    app.listen(port, () => {
-      logger.info({ port }, "Server listening");
-    });
-  });
+// Start listening immediately, then run migrations in background
+app.listen(port, () => {
+  logger.info({ port }, "Server listening");
+  autoMigrate()
+    .then(() => seedIfEmpty())
+    .catch((err) => logger.error({ err }, "Migration/seed error"));
+});

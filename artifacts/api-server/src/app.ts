@@ -2,11 +2,19 @@ import path from "path";
 import { existsSync } from "fs";
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+
+// Security headers (hides X-Powered-By, adds HSTS, X-Content-Type-Options, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // CSP would break inline styles in React
+  crossOriginEmbedderPolicy: false, // Allow cross-origin resources (Google Fonts)
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow fonts/assets to load
+}));
 
 app.use(
   pinoHttp({
@@ -27,7 +35,19 @@ app.use(
     },
   }),
 );
-app.use(cors());
+
+const ALLOWED_ORIGINS = [
+  "https://micocina.azurewebsites.net",
+  "https://menu-planner.purplesky-7900e9da.spaincentral.azurecontainerapps.io",
+];
+if (process.env.NODE_ENV !== "production") {
+  ALLOWED_ORIGINS.push("http://localhost:5173", "http://localhost:3000");
+}
+app.use(cors({
+  origin: ALLOWED_ORIGINS,
+  credentials: true,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

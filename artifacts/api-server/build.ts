@@ -18,6 +18,7 @@ const allowlist = [
   "cookie-parser",
   "cors",
   "date-fns",
+  "helmet",
   "drizzle-orm",
   "drizzle-zod",
   "express",

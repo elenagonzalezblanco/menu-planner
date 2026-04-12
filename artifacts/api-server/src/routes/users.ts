@@ -147,8 +147,8 @@ router.get("/users/:id", async (req, res) => {
     if (isNaN(id)) { res.status(400).json({ error: "Invalid user ID" }); return; }
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
     if (!user) { res.status(404).json({ error: "User not found" }); return; }
-    // Don't expose azureApiKey
-    const { azureApiKey: _, ...safe } = user;
+    // Don't expose sensitive fields
+    const { azureApiKey: _, passwordHash: _ph, ...safe } = user;
     res.json(safe);
   } catch {
     res.status(500).json({ error: "Error fetching user" });

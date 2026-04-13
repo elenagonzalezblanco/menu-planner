@@ -39,6 +39,7 @@ app.use(
 const ALLOWED_ORIGINS = [
   "https://micocina.azurewebsites.net",
   "https://menu-planner.purplesky-7900e9da.spaincentral.azurecontainerapps.io",
+  "https://elenagonzalezblanco.github.io",
 ];
 if (process.env.NODE_ENV !== "production") {
   ALLOWED_ORIGINS.push("http://localhost:5173", "http://localhost:3000");

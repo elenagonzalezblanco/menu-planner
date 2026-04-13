@@ -46,7 +46,13 @@ function AppShell() {
     return params.get("reset");
   });
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   // Show reset password form if token is present (even if logged in)
   if (resetToken) {

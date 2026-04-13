@@ -103,7 +103,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </aside>
       {/* Mobile Header & Content */}
-      <div className="flex-1 flex flex-col md:pl-72 w-full max-w-[100vw]">
+      <div className="flex-1 flex flex-col md:pl-72 w-full max-w-full">
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-sm">

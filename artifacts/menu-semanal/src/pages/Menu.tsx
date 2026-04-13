@@ -41,7 +41,6 @@ import {
   Settings,
   Download,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -546,19 +545,16 @@ export default function MenuPage() {
         </div>
 
         {/* Edit mode banner */}
-        <AnimatePresence>
+        
           {isEditing && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="bg-primary/5 border border-primary/20 rounded-2xl px-5 py-3 flex items-center gap-3 text-sm text-primary"
+            <div
+              className="bg-primary/5 border border-primary/20 rounded-2xl px-5 py-3 flex items-center gap-3 text-sm text-primary animate-fade-slide-down"
             >
               <GripVertical className="w-4 h-4 shrink-0" />
               <span>Modo edición — haz clic en un plato para cambiarlo o <strong>arrastra</strong> para moverlo entre días.</span>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
+        
 
         {/* ── GENERATE MENU PANEL ── */}
         <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
@@ -746,30 +742,24 @@ export default function MenuPage() {
       </div>
 
       {/* Print Modal */}
-      <AnimatePresence>
+      
         {showPrint && latestMenu && (
           <PrintModal
             days={(latestMenu.days ?? []) as unknown as DayPlan[]}
             onClose={() => setShowPrint(false)}
           />
         )}
-      </AnimatePresence>
+      
 
       {/* Save Menu Dialog */}
-      <AnimatePresence>
+      
         {showSaveDialog && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in"
             onClick={(e) => { if (e.target === e.currentTarget) setShowSaveDialog(false); }}
           >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-card rounded-2xl p-6 w-full max-w-md shadow-xl border border-border/50 space-y-4"
+            <div
+              className="bg-card rounded-2xl p-6 w-full max-w-md shadow-xl border border-border/50 space-y-4 animate-scale-in"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center text-amber-600">
@@ -800,10 +790,10 @@ export default function MenuPage() {
                   Guardar
                 </Button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      
 
       {/* Saved Menus Section */}
       {savedMenus.length > 0 && (
@@ -868,10 +858,8 @@ function DayCard({
   onSlotChange: (dayIdx: number, meal: MealType, slot: SlotType, recipe: Recipe | null) => void;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-2xl p-0 overflow-hidden shadow-sm border border-border/50 flex flex-col md:flex-row hover:shadow-md transition-shadow"
+    <div
+      className="bg-card rounded-2xl p-0 overflow-hidden shadow-sm border border-border/50 flex flex-col md:flex-row hover:shadow-md transition-shadow animate-fade-slide-up"
     >
       <div className="bg-muted/40 md:w-44 p-5 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border/50">
         <h3 className="font-display text-xl font-bold text-foreground capitalize">{dayPlan.day}</h3>
@@ -882,7 +870,7 @@ function DayCard({
         <MealSection label="Cena" emoji="🌙" meal={dayPlan.dinner} dayIdx={dayIdx} mealType="dinner"
           isEditing={isEditing} recipes={recipes} savingSlot={savingSlot} onSlotChange={onSlotChange} />
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -1073,14 +1061,12 @@ function AddSlotButton({ label, recipes, slotId, slotKey, savingSlot, onSelect, 
 // ── Print Modal ──
 function PrintModal({ days, onClose }: { days: DayPlan[]; onClose: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 print:hidden"
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 print:hidden animate-fade-in"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-[1100px] w-full overflow-hidden"
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-[1100px] w-full overflow-hidden animate-scale-in"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
           <h2 className="font-display font-bold text-xl">Vista de impresión</h2>
@@ -1094,8 +1080,8 @@ function PrintModal({ days, onClose }: { days: DayPlan[]; onClose: () => void })
         <div className="overflow-auto p-6" style={{ maxHeight: "80vh" }}>
           <PrintCalendar days={days} />
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 

@@ -6,7 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 import { UserProvider, useUser } from "@/contexts/UserContext";
-import { UserSelector } from "@/components/UserSelector";
+
+const UserSelector = lazy(() => import("@/components/UserSelector").then(m => ({ default: m.UserSelector })));
 
 // Lazy-loaded pages for faster initial load
 const RecipesPage = lazy(() => import("@/pages/Recipes"));
@@ -57,22 +58,27 @@ function AppShell() {
   // Show reset password form if token is present (even if logged in)
   if (resetToken) {
     return (
-      <UserSelector
-        mode="splash"
-        resetToken={resetToken}
-        onResetComplete={() => {
-          setResetToken(null);
-          // Clean the URL
-          const url = new URL(window.location.href);
-          url.searchParams.delete("reset");
-          window.history.replaceState({}, "", url.pathname + url.hash);
-        }}
-      />
+      <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-background"><div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+        <UserSelector
+          mode="splash"
+          resetToken={resetToken}
+          onResetComplete={() => {
+            setResetToken(null);
+            const url = new URL(window.location.href);
+            url.searchParams.delete("reset");
+            window.history.replaceState({}, "", url.pathname + url.hash);
+          }}
+        />
+      </Suspense>
     );
   }
 
   if (!currentUser) {
-    return <UserSelector mode="splash" />;
+    return (
+      <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-background"><div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+        <UserSelector mode="splash" />
+      </Suspense>
+    );
   }
 
   return (

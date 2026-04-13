@@ -5,7 +5,8 @@ import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useUser } from "@/contexts/UserContext";
-import { UserSelector } from "@/components/UserSelector";
+
+const UserSelector = lazy(() => import("@/components/UserSelector").then(m => ({ default: m.UserSelector })));
 
 const ProfileSettingsModal = lazy(() => import("@/components/ProfileSettingsModal").then(m => ({ default: m.ProfileSettingsModal })));
 
@@ -53,7 +54,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex w-full">
       {showSwitcher && (
-        <UserSelector mode="switcher" onClose={() => setShowSwitcher(false)} />
+        <Suspense fallback={null}>
+          <UserSelector mode="switcher" onClose={() => setShowSwitcher(false)} />
+        </Suspense>
       )}
       {showSettings && (
         <Suspense fallback={null}>

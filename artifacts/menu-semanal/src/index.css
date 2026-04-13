@@ -148,3 +148,17 @@
   }
   @page { size: A4 landscape; margin: 10mm; }
 }
+
+/* ── Lightweight CSS animations (replacing framer-motion) ── */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes fadeSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeSlideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes fadeSlideLeft { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+.animate-fade-in { animation: fadeIn 0.2s ease-out both; }
+.animate-fade-slide-up { animation: fadeSlideUp 0.3s ease-out both; }
+.animate-fade-slide-down { animation: fadeSlideDown 0.2s ease-out both; }
+.animate-scale-in { animation: scaleIn 0.2s ease-out both; }
+.animate-fade-slide-left { animation: fadeSlideLeft 0.2s ease-out both; }

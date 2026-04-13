@@ -57,11 +57,32 @@ export const UserContext = createContext<UserContextValue>({
 
 const CURRENT_USER_KEY = "current_user_id";
 
+const CACHED_USER_KEY = "cached_user";
+
+function getCachedUser(): User | null {
+  try {
+    const raw = localStorage.getItem(CACHED_USER_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return null;
+}
+
+function setCachedUser(user: User | null) {
+  try {
+    if (user) localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
+    else localStorage.removeItem(CACHED_USER_KEY);
+  } catch { /* ignore */ }
+}
+
 export function UserProvider({ children }: { children: ReactNode }): React.ReactElement {
   const queryClient = useQueryClient();
+  // Restore cached user instantly — no network wait
+  const cachedUser = getCachedUser();
+  const savedId = localStorage.getItem(CURRENT_USER_KEY);
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUserState] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUserState] = useState<User | null>(cachedUser);
+  // If we have a cached user, skip loading screen entirely
+  const [isLoading, setIsLoading] = useState(!cachedUser && !!savedId);
   const prevUserIdRef = useRef<number | null>(null);
 
   // Set up the user ID getter for the API client + clear cache on user switch
@@ -71,9 +92,11 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
       queryClient.clear();
     }
     prevUserIdRef.current = currentUser?.id ?? null;
+    // Keep localStorage cache in sync
+    setCachedUser(currentUser);
   }, [currentUser, queryClient]);
 
-  // Fetch users from API on mount
+  // Fetch users from API in the background (non-blocking)
   useEffect(() => {
     (async () => {
       try {
@@ -82,10 +105,13 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
           const users: User[] = await res.json();
           setAllUsers(users);
 
-          const savedId = localStorage.getItem(CURRENT_USER_KEY);
-          if (savedId) {
-            const user = users.find((u) => u.id === Number(savedId));
-            if (user) setCurrentUserState(user);
+          const sid = localStorage.getItem(CURRENT_USER_KEY);
+          if (sid) {
+            const user = users.find((u) => u.id === Number(sid));
+            if (user) {
+              setCurrentUserState(user);
+              setCachedUser(user);
+            }
           }
         }
       } catch {
@@ -172,6 +198,7 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
 
   const logout = useCallback(() => {
     localStorage.removeItem(CURRENT_USER_KEY);
+    setCachedUser(null);
     setCurrentUserState(null);
     queryClient.clear();
   }, [queryClient]);

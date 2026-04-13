@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListRecipesQueryKey } from "@workspace/api-client-react";
@@ -166,8 +165,8 @@ export default function RecipesPage() {
           <p className="text-muted-foreground mt-2">Prueba con otra búsqueda o categoría.</p>
         </div>
       ) : (
-        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <AnimatePresence>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          
             {filteredRecipes.map(recipe => (
               <RecipeCard
                 key={recipe.id}
@@ -176,8 +175,8 @@ export default function RecipesPage() {
                 onDelete={() => handleDelete(recipe.id, recipe.name)}
               />
             ))}
-          </AnimatePresence>
-        </motion.div>
+          
+        </div>
       )}
 
       {/* Edit dialog */}
@@ -221,12 +220,8 @@ function RecipeCard({ recipe, onEdit, onDelete }: {
   const shown = expanded ? recipe.ingredients : recipe.ingredients.slice(0, 6);
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      className="bg-card rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden"
+    <div
+      className="bg-card rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden animate-scale-in"
     >
       {/* Card header */}
       <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3">
@@ -295,7 +290,7 @@ function RecipeCard({ recipe, onEdit, onDelete }: {
           <p className="text-xs text-muted-foreground line-clamp-2">{recipe.instructions}</p>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }
 

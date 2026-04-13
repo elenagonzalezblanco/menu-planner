@@ -7,7 +7,6 @@ import { ShoppingBag, CheckCircle2, Store, Plus, X, Mail } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 
 export default function ShoppingPage() {
   const { data: menus = [] } = useMenus();
@@ -125,14 +124,11 @@ export default function ShoppingPage() {
             {apiItems.map((item, i) => {
               const isChecked = checkedItems.has(item.ingredient);
               return (
-                <motion.div
+                <div
                   key={i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.02 }}
                   onClick={() => toggleItem(item.ingredient)}
                   className={cn(
-                    "flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border",
+                    "flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border animate-fade-slide-up",
                     isChecked
                       ? "bg-muted/30 border-transparent opacity-60"
                       : "bg-background border-border/50 hover:border-primary/30 hover:shadow-sm"
@@ -159,7 +155,7 @@ export default function ShoppingPage() {
                       ))}
                     </div>
                   </div>
-                </motion.div>
+                </div>
               );
             })}
 
@@ -167,12 +163,10 @@ export default function ShoppingPage() {
             {extraItems.map((ingredient, i) => {
               const isChecked = checkedItems.has(ingredient);
               return (
-                <motion.div
+                <div
                   key={`extra-${i}`}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
                   className={cn(
-                    "flex items-center gap-4 p-4 rounded-2xl border transition-all",
+                    "flex items-center gap-4 p-4 rounded-2xl border transition-all animate-fade-slide-left",
                     isChecked
                       ? "bg-muted/30 border-transparent opacity-60"
                       : "bg-background border-border/50 hover:border-primary/30 hover:shadow-sm"
@@ -206,7 +200,7 @@ export default function ShoppingPage() {
                   >
                     <X className="w-4 h-4" />
                   </button>
-                </motion.div>
+                </div>
               );
             })}
 

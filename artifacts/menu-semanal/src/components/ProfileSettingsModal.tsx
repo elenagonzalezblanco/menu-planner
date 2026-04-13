@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { motion, AnimatePresence } from "framer-motion";
 import { X, Mail, Store } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,19 +27,13 @@ export function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
   }
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+    
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in"
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-card rounded-2xl p-6 w-full max-w-md shadow-xl border border-border/50 space-y-5"
+        <div
+          className="bg-card rounded-2xl p-6 w-full max-w-md shadow-xl border border-border/50 space-y-5 animate-scale-in"
         >
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -101,8 +94,8 @@ export function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
               Guardar cambios
             </Button>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </div>
+      </div>
+    
   );
 }

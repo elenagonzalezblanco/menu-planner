@@ -26,25 +26,27 @@ export default defineConfig({
     target: "esnext",
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom"],
-          "vendor-radix": [
-            "@radix-ui/react-dialog",
-            "@radix-ui/react-popover",
-            "@radix-ui/react-dropdown-menu",
-            "@radix-ui/react-select",
-            "@radix-ui/react-tabs",
-            "@radix-ui/react-toast",
-            "@radix-ui/react-tooltip",
-            "@radix-ui/react-checkbox",
-            "@radix-ui/react-label",
-            "@radix-ui/react-scroll-area",
-            "@radix-ui/react-separator",
-            "@radix-ui/react-slot",
-            "@radix-ui/react-switch",
-          ],
-          "vendor-query": ["@tanstack/react-query"],
-          "vendor-dnd": ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
+        manualChunks(id) {
+          // React core — cached long-term, rarely changes
+          if (id.includes("/react-dom/") || id.includes("/react/") || id.includes("/scheduler/")) {
+            return "vendor-react";
+          }
+          // Radix UI primitives
+          if (id.includes("@radix-ui/")) {
+            return "vendor-radix";
+          }
+          // TanStack Query
+          if (id.includes("@tanstack/")) {
+            return "vendor-query";
+          }
+          // DnD Kit — only loaded with Menu page
+          if (id.includes("@dnd-kit/")) {
+            return "vendor-dnd";
+          }
+          // Lucide icons
+          if (id.includes("lucide-react")) {
+            return "vendor-icons";
+          }
         },
       },
     },

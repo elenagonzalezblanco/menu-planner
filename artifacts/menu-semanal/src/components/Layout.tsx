@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Utensils, CalendarDays, ShoppingBasket, ShoppingBag, Menu as MenuIcon, Settings, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useUser } from "@/contexts/UserContext";
 import { UserSelector } from "@/components/UserSelector";
-import { ProfileSettingsModal } from "@/components/ProfileSettingsModal";
+
+const ProfileSettingsModal = lazy(() => import("@/components/ProfileSettingsModal").then(m => ({ default: m.ProfileSettingsModal })));
 
 const NAV_ITEMS = [
   { href: "/", label: "Recetas", icon: Utensils },
@@ -55,7 +56,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <UserSelector mode="switcher" onClose={() => setShowSwitcher(false)} />
       )}
       {showSettings && (
-        <ProfileSettingsModal onClose={() => setShowSettings(false)} />
+        <Suspense fallback={null}>
+          <ProfileSettingsModal onClose={() => setShowSettings(false)} />
+        </Suspense>
       )}
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-72 border-r border-border/50 bg-card/50 backdrop-blur-xl fixed inset-y-0 z-10 p-6">

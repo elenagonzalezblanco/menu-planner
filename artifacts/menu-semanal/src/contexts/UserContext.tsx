@@ -96,11 +96,14 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
     setCachedUser(currentUser);
   }, [currentUser, queryClient]);
 
-  // Fetch users from API in the background (non-blocking)
+  // Fetch users from API in the background (non-blocking, with timeout)
   useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/users`);
+        const res = await fetch(`${API_URL}/api/users`, { signal: controller.signal });
         if (res.ok) {
           const users: User[] = await res.json();
           setAllUsers(users);
@@ -115,11 +118,17 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
           }
         }
       } catch {
-        // API not available — will show user selection
+        // API not available or timed out — will show user selection
       } finally {
+        clearTimeout(timeout);
         setIsLoading(false);
       }
     })();
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   const setCurrentUser = useCallback((id: number) => {

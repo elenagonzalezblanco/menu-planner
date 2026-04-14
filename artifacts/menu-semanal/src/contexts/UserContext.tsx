@@ -140,11 +140,14 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
   }, [allUsers]);
 
   const createUser = useCallback(async (name: string, avatar: string, password: string, email?: string): Promise<User> => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
     const res = await fetch(`${API_URL}/api/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: name.trim(), avatar, password, email: email?.trim() || undefined }),
-    });
+      signal: ctrl.signal,
+    }).finally(() => clearTimeout(t));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Error creating user" }));
       throw new Error(err.error || "Error creating user");
@@ -155,11 +158,14 @@ export function UserProvider({ children }: { children: ReactNode }): React.React
   }, []);
 
   const loginUser = useCallback(async (email: string, password: string): Promise<User> => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
     const res = await fetch(`${API_URL}/api/users/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
-    });
+      signal: ctrl.signal,
+    }).finally(() => clearTimeout(t));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Login failed" }));
       throw new Error(err.error || "Login failed");

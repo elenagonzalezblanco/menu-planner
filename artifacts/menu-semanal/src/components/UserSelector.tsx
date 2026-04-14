@@ -34,7 +34,7 @@ function CreateForm({ onCreated, onCancel, showCancel, onGoToLogin }: CreateForm
       const user = await createUser(name.trim(), avatar, password, email.trim() || undefined);
       setCreatedUser(user);
     } catch (err: any) {
-      setError(err.message || "Error al crear la cuenta");
+      setError(err.name === "AbortError" ? "El servidor no responde. Inténtalo de nuevo." : err.message || "Error al crear la cuenta");
     } finally {
       setLoading(false);
     }
@@ -169,7 +169,7 @@ function LoginForm({ onLoggedIn, onCancel, onRegister, onForgotPassword, showCan
       setCurrentUser(user.id);
       onLoggedIn();
     } catch (err: any) {
-      setError(err.message || "Email o contraseña incorrectos");
+      setError(err.name === "AbortError" ? "El servidor no responde. Inténtalo de nuevo." : err.message || "Email o contraseña incorrectos");
     } finally {
       setLoading(false);
     }

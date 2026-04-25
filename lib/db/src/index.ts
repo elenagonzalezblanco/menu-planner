@@ -17,6 +17,9 @@ const isSSL = process.env.DATABASE_URL.includes("render.com") ||
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: isSSL ? { rejectUnauthorized: false } : undefined,
+  connectionTimeoutMillis: 10000, // fail fast if DB is unreachable
+  idleTimeoutMillis: 30000,       // release idle connections after 30s
+  max: 5,                          // limit pool size on Free tier
 });
 export const db = drizzle(pool, { schema });
 

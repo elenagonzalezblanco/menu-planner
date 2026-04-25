@@ -1,0 +1,52 @@
+name: Keep Alive — DB & App
+
+on:
+  schedule:
+    # Every 5 minutes
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    environment: keep-alive
+    steps:
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: 2f65786d-ad3f-480d-a0eb-a41d45de8135
+          tenant-id: 16b3c013-d300-468d-ac64-7eda0820b6d3
+          subscription-id: 5fd714fb-9dfc-4176-ac01-ef4087e8c47f
+
+      - name: Start PostgreSQL if stopped (and restart App if needed)
+        run: |
+          STATE=$(az postgres flexible-server show \
+            -g elenagbgpersonal \
+            -n menu-planner-pg-elena \
+            --query "state" -o tsv)
+          echo "DB state: $STATE"
+          if [ "$STATE" != "Ready" ]; then
+            echo "Starting PostgreSQL server..."
+            az postgres flexible-server start \
+              -g elenagbgpersonal \
+              -n menu-planner-pg-elena
+            echo "Waiting 45s for DB to be ready..."
+            sleep 45
+            echo "Restarting App Service to clear stale DB connection pool..."
+            az webapp restart --name micocina -g elenagbgpersonal -o none
+            echo "Waiting 20s for App Service to restart..."
+            sleep 20
+          fi
+
+      - name: Ping App Service health endpoint
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://micocina.azurewebsites.net/api/healthz)
+          echo "Health check: HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Health check returned $HTTP_CODE"
+          fi

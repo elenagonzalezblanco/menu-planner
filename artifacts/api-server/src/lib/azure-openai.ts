@@ -6,7 +6,7 @@ const RESOURCE_ENDPOINT =
   process.env.AZURE_OPENAI_ENDPOINT ||
   "https://menuplanner3-resource.openai.azure.com";
 
-export const MODEL = process.env.AZURE_OPENAI_MODEL || "gpt-4o";
+export const MODEL = process.env.AZURE_OPENAI_MODEL || "gpt-5.4";
 
 const API_VERSION = "2024-10-21";
 

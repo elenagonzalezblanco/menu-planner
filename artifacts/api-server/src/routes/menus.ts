@@ -459,7 +459,7 @@ Cuando hay cambios:
       model: MODEL,
       messages,
       temperature: 0.7,
-      max_tokens: 4096,
+      max_completion_tokens: 4096,
       response_format: { type: "json_object" },
     });
 

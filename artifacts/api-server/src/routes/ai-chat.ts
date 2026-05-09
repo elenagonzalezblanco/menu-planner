@@ -24,7 +24,7 @@ router.post("/ai/chat", async (req: AuthenticatedRequest, res) => {
         ...messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content })),
       ],
       temperature: 0.7,
-      max_tokens: 4096,
+      max_completion_tokens: 4096,
     });
 
     const text = completion.choices?.[0]?.message?.content ?? "";

@@ -74,8 +74,41 @@ jobs:
           fi
           exit 0
 
-      - name: Ping App Service health endpoint
+      - name: Verify real DB health and self-heal the App Service
         run: |
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://micocina.azurewebsites.net/healthz || echo "000")
-          echo "Health check: HTTP $CODE"
-          if [ "$CODE" != "200" ]; then echo "::warning::Health check returned $CODE"; fi
+          set +e
+          RG=elenagbgpersonal
+          APP=micocina
+          HEALTH_URL="https://${APP}.azurewebsites.net/api/healthz"
+
+          # /api/healthz returns 200 only when the API can actually reach the DB.
+          # (/healthz without /api returns the SPA index.html and is always 200,
+          #  so it must NOT be used to detect outages.)
+          check() { curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$HEALTH_URL" || echo "000"; }
+
+          CODE=$(check)
+          echo "DB health check (api/healthz): HTTP $CODE"
+          if [ "$CODE" = "200" ]; then
+            echo "App + DB healthy."
+            exit 0
+          fi
+
+          # Unhealthy: DB is up (previous step guaranteed it) but the API's
+          # connection pool is likely stale. Restart the App Service to recover.
+          echo "::warning::Health check returned $CODE - restarting App Service to clear stale pool"
+          az webapp restart --name "$APP" -g "$RG" -o none || echo "::warning::App restart failed"
+
+          # Give it time to come back, then re-check a few times.
+          for i in $(seq 1 12); do
+            sleep 15
+            CODE=$(check)
+            echo "  [$i] post-restart health: HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              echo "Recovered after restart."
+              exit 0
+            fi
+          done
+
+          echo "::error::App still unhealthy after restart (last HTTP $CODE). Next scheduled run will retry."
+          # Do not fail the job: keep the schedule self-healing on the next tick.
+          exit 0

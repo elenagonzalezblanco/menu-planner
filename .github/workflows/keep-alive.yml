@@ -2,13 +2,16 @@ name: Keep Alive — DB & App
 
 on:
   schedule:
-    # Every 5 minutes
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
 
 jobs:
   keep-alive:
@@ -22,31 +25,57 @@ jobs:
           tenant-id: 16b3c013-d300-468d-ac64-7eda0820b6d3
           subscription-id: 5fd714fb-9dfc-4176-ac01-ef4087e8c47f
 
-      - name: Start PostgreSQL if stopped (and restart App if needed)
+      - name: Ensure PostgreSQL is running
         run: |
-          STATE=$(az postgres flexible-server show \
-            -g elenagbgpersonal \
-            -n menu-planner-pg-elena \
-            --query "state" -o tsv)
-          echo "DB state: $STATE"
-          if [ "$STATE" != "Ready" ]; then
-            echo "Starting PostgreSQL server..."
-            az postgres flexible-server start \
-              -g elenagbgpersonal \
-              -n menu-planner-pg-elena
-            echo "Waiting 45s for DB to be ready..."
-            sleep 45
-            echo "Restarting App Service to clear stale DB connection pool..."
-            az webapp restart --name micocina -g elenagbgpersonal -o none
-            echo "Waiting 20s for App Service to restart..."
-            sleep 20
+          set +e
+          RG=elenagbgpersonal
+          PG=menu-planner-pg-elena
+          get_state() { az postgres flexible-server show -g "$RG" -n "$PG" --query "state" -o tsv 2>/dev/null; }
+          STATE=$(get_state)
+          echo "Initial DB state: $STATE"
+          NEEDS_APP_RESTART=0
+          case "$STATE" in
+            Ready)
+              echo "DB already Ready."
+              ;;
+            Stopped|Disabled)
+              echo "DB is $STATE - issuing start..."
+              az postgres flexible-server start -g "$RG" -n "$PG" || echo "start returned non-zero"
+              NEEDS_APP_RESTART=1
+              ;;
+            "")
+              echo "::warning::Could not read DB state. Skipping."
+              ;;
+            *)
+              echo "DB transient state $STATE - waiting to settle."
+              NEEDS_APP_RESTART=1
+              ;;
+          esac
+          if [ "$NEEDS_APP_RESTART" = "1" ]; then
+            for i in $(seq 1 24); do
+              sleep 10
+              STATE=$(get_state)
+              echo "  [$i] DB state: $STATE"
+              if [ "$STATE" = "Ready" ]; then break; fi
+              if [ "$STATE" = "Stopped" ] || [ "$STATE" = "Disabled" ]; then
+                echo "  settled to $STATE - issuing start..."
+                az postgres flexible-server start -g "$RG" -n "$PG" || echo "  start returned non-zero"
+              fi
+            done
           fi
+          if [ "$STATE" = "Ready" ]; then
+            if [ "$NEEDS_APP_RESTART" = "1" ]; then
+              echo "DB Ready - restarting App Service..."
+              az webapp restart --name micocina -g "$RG" -o none || echo "::warning::App restart failed"
+              sleep 20
+            fi
+          else
+            echo "::warning::DB not Ready (last $STATE). Next run retries."
+          fi
+          exit 0
 
       - name: Ping App Service health endpoint
         run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://micocina.azurewebsites.net/api/healthz)
-          echo "Health check: HTTP $HTTP_CODE"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "::warning::Health check returned $HTTP_CODE"
-          fi
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://micocina.azurewebsites.net/healthz || echo "000")
+          echo "Health check: HTTP $CODE"
+          if [ "$CODE" != "200" ]; then echo "::warning::Health check returned $CODE"; fi

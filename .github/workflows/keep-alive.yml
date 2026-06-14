@@ -29,7 +29,7 @@ jobs:
         run: |
           set +e
           RG=elenagbgpersonal
-          PG=menu-planner-pg-elena
+          PG=menu-planner-pg-elena2
           get_state() { az postgres flexible-server show -g "$RG" -n "$PG" --query "state" -o tsv 2>/dev/null; }
           STATE=$(get_state)
           echo "Initial DB state: $STATE"

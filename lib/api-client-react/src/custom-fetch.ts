@@ -1,5 +1,10 @@
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  /**
+   * Per-request timeout in milliseconds. Overrides the module default set via
+   * `setDefaultTimeout`. Pass `0` to disable the timeout for this request.
+   */
+  timeout?: number;
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
@@ -18,6 +23,19 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 let _userIdGetter: (() => number | null) | null = null;
+// Default per-request timeout. Prevents the UI from hanging forever when the
+// backend is cold-starting (e.g. Container Apps scale-from-zero) or the
+// database is slow/paused. `0` disables the timeout.
+let _defaultTimeoutMs = 20000;
+
+/**
+ * Set the default per-request timeout (in milliseconds) applied to every
+ * request that does not override it via the `timeout` option. Pass `0` to
+ * disable the default timeout entirely.
+ */
+export function setDefaultTimeout(ms: number): void {
+  _defaultTimeoutMs = Math.max(0, ms);
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -65,6 +83,40 @@ function resolveMethod(input: RequestInfo | URL, explicitMethod?: string): strin
 // differently, so `instanceof URL` can fail.
 function isUrl(input: RequestInfo | URL): input is URL {
   return typeof URL !== "undefined" && input instanceof URL;
+}
+
+/**
+ * Combine an optional caller-supplied signal with a timeout. Returns the signal
+ * to pass to `fetch` and a `cleanup` function that clears the timer. When
+ * `timeoutMs` is `0` (or no caller signal exists), this degrades gracefully.
+ */
+function withTimeout(
+  callerSignal: AbortSignal | null | undefined,
+  timeoutMs: number,
+): { signal: AbortSignal | undefined; cleanup: () => void } {
+  if (!timeoutMs || timeoutMs <= 0) {
+    return { signal: callerSignal ?? undefined, cleanup: () => {} };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new TimeoutError(timeoutMs)),
+    timeoutMs,
+  );
+
+  const onCallerAbort = () => controller.abort(callerSignal?.reason);
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort(callerSignal.reason);
+    else callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener("abort", onCallerAbort);
+    },
+  };
 }
 
 function applyBaseUrl(input: RequestInfo | URL): RequestInfo | URL {
@@ -206,6 +258,21 @@ export class ApiError<T = unknown> extends Error {
   }
 }
 
+/**
+ * Thrown when a request exceeds its timeout. Used as the abort reason so callers
+ * (and React Query) can distinguish timeouts from other aborts.
+ */
+export class TimeoutError extends Error {
+  readonly name = "TimeoutError";
+  readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`Request timed out after ${timeoutMs}ms`);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 export class ResponseParseError extends Error {
   readonly name = "ResponseParseError";
   readonly status: number;
@@ -334,7 +401,12 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const {
+    responseType = "auto",
+    headers: headersInit,
+    timeout = _defaultTimeoutMs,
+    ...init
+  } = options;
 
   const method = resolveMethod(input, init.method);
 
@@ -375,7 +447,17 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Apply a timeout so a cold-starting backend or a slow/paused database can
+  // never leave the UI hanging indefinitely. Combines with any caller signal
+  // (e.g. React Query's cancellation signal).
+  const { signal, cleanup } = withTimeout(init.signal, timeout);
+
+  let response: Response;
+  try {
+    response = await fetch(input, { ...init, method, headers, signal });
+  } finally {
+    cleanup();
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

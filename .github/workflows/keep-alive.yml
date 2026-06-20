@@ -30,9 +30,19 @@ jobs:
           set +e
           RG=elenagbgpersonal
           PG=menu-planner-pg-elena2
-          get_state() { az postgres flexible-server show -g "$RG" -n "$PG" --query "state" -o tsv 2>/dev/null; }
-          STATE=$(get_state)
-          echo "Initial DB state: $STATE"
+
+          # Run show and capture both stdout and stderr to detect auth failures
+          SHOW_OUTPUT=$(az postgres flexible-server show -g "$RG" -n "$PG" --query "state" -o tsv 2>&1)
+          SHOW_EXIT=$?
+          STATE=$(echo "$SHOW_OUTPUT" | grep -v "ERROR\|WARNING\|AuthorizationFailed\|error" | tr -d '[:space:]')
+
+          if echo "$SHOW_OUTPUT" | grep -qi "AuthorizationFailed\|does not have authorization"; then
+            echo "::error::RBAC permission missing for PostgreSQL read."
+            echo "::error::Grant role 'Reader' + action 'Microsoft.DBforPostgreSQL/flexibleServers/start/action'"
+            echo "::error::OR grant 'Contributor' on resource '$PG' to service principal 2f65786d-ad3f-480d-a0eb-a41d45de8135"
+          fi
+
+          echo "Initial DB state: '${STATE}'"
           NEEDS_APP_RESTART=0
           case "$STATE" in
             Ready)
@@ -44,17 +54,21 @@ jobs:
               NEEDS_APP_RESTART=1
               ;;
             "")
-              echo "::warning::Could not read DB state. Skipping."
+              # Empty state = auth failure OR server unreachable.
+              # Treat as potentially stopped: flag for app restart so the
+              # health-check step can detect and recover.
+              echo "::warning::Could not read DB state (likely auth failure or server unreachable). Will verify via health check."
+              NEEDS_APP_RESTART=1
               ;;
             *)
               echo "DB transient state $STATE - waiting to settle."
               NEEDS_APP_RESTART=1
               ;;
           esac
-          if [ "$NEEDS_APP_RESTART" = "1" ]; then
+          if [ "$NEEDS_APP_RESTART" = "1" ] && [ "$STATE" != "" ]; then
             for i in $(seq 1 24); do
               sleep 10
-              STATE=$(get_state)
+              STATE=$(az postgres flexible-server show -g "$RG" -n "$PG" --query "state" -o tsv 2>/dev/null | tr -d '[:space:]')
               echo "  [$i] DB state: $STATE"
               if [ "$STATE" = "Ready" ]; then break; fi
               if [ "$STATE" = "Stopped" ] || [ "$STATE" = "Disabled" ]; then
@@ -62,15 +76,21 @@ jobs:
                 az postgres flexible-server start -g "$RG" -n "$PG" || echo "  start returned non-zero"
               fi
             done
-          fi
-          if [ "$STATE" = "Ready" ]; then
-            if [ "$NEEDS_APP_RESTART" = "1" ]; then
+            if [ "$STATE" = "Ready" ]; then
               echo "DB Ready - restarting App Service..."
-              az webapp restart --name micocina -g "$RG" -o none || echo "::warning::App restart failed"
+              RESTART_OUTPUT=$(az webapp restart --name micocina -g "$RG" -o none 2>&1)
+              if echo "$RESTART_OUTPUT" | grep -qi "AuthorizationFailed\|does not have authorization"; then
+                echo "::error::RBAC permission missing for App Service restart."
+                echo "::error::Grant role 'Website Contributor' on App Service 'micocina' to service principal 2f65786d-ad3f-480d-a0eb-a41d45de8135"
+              elif [ -n "$RESTART_OUTPUT" ]; then
+                echo "::warning::App restart output: $RESTART_OUTPUT"
+              else
+                echo "App Service restart requested."
+              fi
               sleep 20
+            else
+              echo "::warning::DB not Ready (last '$STATE'). Next run retries."
             fi
-          else
-            echo "::warning::DB not Ready (last $STATE). Next run retries."
           fi
           exit 0
 
@@ -96,7 +116,16 @@ jobs:
           # Unhealthy: DB is up (previous step guaranteed it) but the API's
           # connection pool is likely stale. Restart the App Service to recover.
           echo "::warning::Health check returned $CODE - restarting App Service to clear stale pool"
-          az webapp restart --name "$APP" -g "$RG" -o none || echo "::warning::App restart failed"
+          RESTART_OUTPUT=$(az webapp restart --name "$APP" -g "$RG" -o none 2>&1)
+          if echo "$RESTART_OUTPUT" | grep -qi "AuthorizationFailed\|does not have authorization"; then
+            echo "::error::RBAC permission missing — cannot restart App Service '$APP'."
+            echo "::error::Fix: in Azure Portal → App Service 'micocina' → Access control (IAM)"
+            echo "::error::     Add role 'Website Contributor' to service principal 2f65786d-ad3f-480d-a0eb-a41d45de8135"
+            echo "::error::App is unhealthy (HTTP $CODE) and cannot self-heal. Manual restart required."
+            exit 0
+          elif [ -n "$RESTART_OUTPUT" ]; then
+            echo "::warning::Restart output: $RESTART_OUTPUT"
+          fi
 
           # Give it time to come back, then re-check a few times.
           for i in $(seq 1 12); do

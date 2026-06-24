@@ -237,11 +237,29 @@ function RecipeCard({ recipe, onView, onEdit, onDelete }: {
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? recipe.ingredients : recipe.ingredients.slice(0, 6);
   const hasInstructions = !!(recipe.instructions && recipe.instructions.trim());
+  const imageUrl = getRecipeImageUrl(recipe.name);
 
   return (
     <div
       className="bg-card rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden animate-scale-in"
     >
+      {/* Photo banner */}
+      {imageUrl && (
+        <button
+          type="button"
+          onClick={onView}
+          className="block w-full overflow-hidden group"
+          title="Ver receta"
+        >
+          <img
+            src={imageUrl}
+            alt={recipe.name}
+            loading="lazy"
+            className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        </button>
+      )}
+
       {/* Card header */}
       <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3">
         <button

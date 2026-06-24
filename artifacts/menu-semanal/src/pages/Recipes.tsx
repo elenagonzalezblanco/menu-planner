@@ -1,6 +1,7 @@
 import { useState, useRef, KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import { downloadRecipePdf } from "@/lib/recipe-pdf";
+import { getRecipeImageUrl } from "@/lib/recipe-images";
 import { useRecipes, useCreateRecipe, useDeleteRecipe, useUpdateRecipe } from "@/hooks/use-recipes";
 import { Plus, Search, ChefHat, Trash2, Pencil, Utensils, X, Check, Loader2, Eye, FileDown, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -271,7 +272,7 @@ function RecipeCard({ recipe, onView, onEdit, onDelete }: {
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
-            onClick={() => downloadRecipePdf(recipe)}
+            onClick={() => { downloadRecipePdf(recipe).catch((e) => console.error(e)); }}
             title="Descargar PDF"
           >
             <FileDown className="w-3.5 h-3.5" />
@@ -351,6 +352,7 @@ function RecipeDetailDialog({ recipe, onOpenChange, onEdit }: {
 }) {
   if (!recipe) return null;
   const cat = recipe.category as Category;
+  const imageUrl = getRecipeImageUrl(recipe.name);
   const hasInstructions = !!(recipe.instructions && recipe.instructions.trim());
   const steps = hasInstructions
     ? recipe.instructions!.split(/\n+/).map(s => s.trim()).filter(Boolean)
@@ -370,6 +372,16 @@ function RecipeDetailDialog({ recipe, onOpenChange, onEdit }: {
         </DialogHeader>
 
         <div className="px-6 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
+          {/* Dish photo */}
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt={recipe.name}
+              loading="lazy"
+              className="w-full h-48 object-cover rounded-xl border border-border/50"
+            />
+          )}
+
           {/* Ingredients */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
@@ -419,7 +431,7 @@ function RecipeDetailDialog({ recipe, onOpenChange, onEdit }: {
           </Button>
           <Button
             type="button"
-            onClick={() => downloadRecipePdf(recipe)}
+            onClick={() => { downloadRecipePdf(recipe).catch((e) => console.error(e)); }}
             className="rounded-xl px-6 gap-2"
           >
             <FileDown className="w-4 h-4" /> Descargar PDF

@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { getRecipeImageUrl, slugifyRecipe } from "./recipe-images";
 
 interface RecipeForPdf {
   name: string;
@@ -22,19 +23,41 @@ const COLORS = {
 };
 
 function slugify(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
+  return slugifyRecipe(text);
+}
+
+/** Loads an image URL and returns its data URL + natural dimensions. */
+async function loadImageData(
+  url: string,
+): Promise<{ dataUrl: string; width: number; height: number } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    const dims = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+    return { dataUrl, ...dims };
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Generates and downloads a clean, uniform PDF for a single recipe with its
- * name, category, ingredients and step-by-step instructions.
+ * name, category, dish photo (when available), ingredients and step-by-step
+ * instructions.
  */
-export function downloadRecipePdf(recipe: RecipeForPdf): void {
+export async function downloadRecipePdf(recipe: RecipeForPdf): Promise<void> {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
 
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -71,9 +94,30 @@ export function downloadRecipePdf(recipe: RecipeForPdf): void {
   doc.text(titleLines, marginX, y);
   y += titleLines.length * 26 + 6;
 
+  // ── Dish photo (if available) ──
+  const imageUrl = getRecipeImageUrl(recipe.name);
+  if (imageUrl) {
+    const img = await loadImageData(imageUrl);
+    if (img) {
+      const maxW = contentWidth;
+      const maxH = 240;
+      let w = maxW;
+      let h = (img.height / img.width) * w;
+      if (h > maxH) {
+        h = maxH;
+        w = (img.width / img.height) * h;
+      }
+      const x = marginX + (contentWidth - w) / 2;
+      ensureSpace(h + 12);
+      doc.addImage(img.dataUrl, "JPEG", x, y, w, h, undefined, "FAST");
+      y += h + 14;
+    }
+  }
+
   // Divider
   doc.setDrawColor(...COLORS.line);
   doc.setLineWidth(1);
+  ensureSpace(20);
   doc.line(marginX, y, pageWidth - marginX, y);
   y += 26;
 

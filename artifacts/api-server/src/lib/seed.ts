@@ -1,5 +1,7 @@
 import { db, recipesTable } from "@workspace/db";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { logger } from "./logger";
+import { RECIPE_INSTRUCTIONS, REPLACEABLE_PLACEHOLDERS } from "./recipe-instructions";
 
 export const DEFAULT_RECIPES = [
   { name: "Sopa de cebolla", category: "primero", ingredients: ["Cebollas", "Harina", "Mantequilla", "Vino blanco", "Queso gouda"], instructions: "" },
@@ -90,5 +92,35 @@ export async function seedIfEmpty() {
     logger.info({ count: DEFAULT_RECIPES.length }, "Seed complete");
   } catch (err) {
     logger.error({ err }, "Failed to seed recipes");
+  }
+}
+
+/**
+ * Fills in preparation instructions for recipes that don't have them yet.
+ *
+ * Idempotent: only updates rows whose `instructions` is empty/null or an old
+ * seeded placeholder, so it never clobbers instructions a user has edited.
+ * Runs on every startup and applies to all users that have these recipes.
+ */
+export async function backfillInstructions() {
+  try {
+    const placeholders = [...REPLACEABLE_PLACEHOLDERS];
+    let updated = 0;
+    for (const [name, instructions] of Object.entries(RECIPE_INSTRUCTIONS)) {
+      const fillable = or(
+        isNull(recipesTable.instructions),
+        eq(recipesTable.instructions, ""),
+        placeholders.length > 0 ? inArray(recipesTable.instructions, placeholders) : undefined,
+      );
+      const result = await db
+        .update(recipesTable)
+        .set({ instructions })
+        .where(and(eq(recipesTable.name, name), fillable))
+        .returning({ id: recipesTable.id });
+      updated += result.length;
+    }
+    logger.info({ updated }, "Recipe instructions backfill complete");
+  } catch (err) {
+    logger.error({ err }, "Failed to backfill recipe instructions");
   }
 }

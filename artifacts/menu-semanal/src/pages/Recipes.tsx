@@ -1,7 +1,9 @@
 import { useState, useRef, KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
+import { downloadRecipePdf } from "@/lib/recipe-pdf";
+import { getRecipeImageUrl } from "@/lib/recipe-images";
 import { useRecipes, useCreateRecipe, useDeleteRecipe, useUpdateRecipe } from "@/hooks/use-recipes";
-import { Plus, Search, ChefHat, Trash2, Pencil, Utensils, X, Check, Loader2 } from "lucide-react";
+import { Plus, Search, ChefHat, Trash2, Pencil, Utensils, X, Check, Loader2, Eye, FileDown, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -45,6 +47,7 @@ export default function RecipesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   const { data: recipes = [], isLoading } = useRecipes();
@@ -171,6 +174,7 @@ export default function RecipesPage() {
               <RecipeCard
                 key={recipe.id}
                 recipe={recipe}
+                onView={() => setViewingRecipe(recipe)}
                 onEdit={() => openEdit(recipe)}
                 onDelete={() => handleDelete(recipe.id, recipe.name)}
               />
@@ -178,6 +182,19 @@ export default function RecipesPage() {
           
         </div>
       )}
+
+      {/* Detail dialog */}
+      <RecipeDetailDialog
+        recipe={viewingRecipe}
+        onOpenChange={open => { if (!open) setViewingRecipe(null); }}
+        onEdit={() => {
+          if (viewingRecipe) {
+            const r = viewingRecipe;
+            setViewingRecipe(null);
+            setEditingRecipe(r);
+          }
+        }}
+      />
 
       {/* Edit dialog */}
       <RecipeDialog
@@ -210,31 +227,74 @@ export default function RecipesPage() {
 }
 
 // ── Recipe Card ──
-function RecipeCard({ recipe, onEdit, onDelete }: {
+function RecipeCard({ recipe, onView, onEdit, onDelete }: {
   recipe: Recipe;
+  onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const cat = recipe.category as Category;
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? recipe.ingredients : recipe.ingredients.slice(0, 6);
+  const hasInstructions = !!(recipe.instructions && recipe.instructions.trim());
+  const imageUrl = getRecipeImageUrl(recipe.name);
 
   return (
     <div
       className="bg-card rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden animate-scale-in"
     >
+      {/* Photo banner */}
+      {imageUrl && (
+        <button
+          type="button"
+          onClick={onView}
+          className="block w-full overflow-hidden group"
+          title="Ver receta"
+        >
+          <img
+            src={imageUrl}
+            alt={recipe.name}
+            loading="lazy"
+            className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        </button>
+      )}
+
       {/* Card header */}
       <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
+        <button
+          type="button"
+          onClick={onView}
+          className="flex-1 min-w-0 text-left group"
+          title="Ver receta"
+        >
           <span className={cn(
             "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border mb-2",
             CATEGORY_COLORS[cat]
           )}>
             {CATEGORY_LABELS[cat]}
           </span>
-          <h3 className="text-lg font-display font-bold text-foreground leading-snug">{recipe.name}</h3>
-        </div>
+          <h3 className="text-lg font-display font-bold text-foreground leading-snug group-hover:text-primary transition-colors">{recipe.name}</h3>
+        </button>
         <div className="flex gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={onView}
+            title="Ver receta"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={() => { downloadRecipePdf(recipe).catch((e) => console.error(e)); }}
+            title="Descargar PDF"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -285,12 +345,118 @@ function RecipeCard({ recipe, onEdit, onDelete }: {
       </div>
 
       {/* Instructions preview */}
-      {recipe.instructions && (
-        <div className="px-5 pb-4 border-t border-border/40 pt-3">
+      {hasInstructions && (
+        <button
+          type="button"
+          onClick={onView}
+          className="px-5 pb-4 border-t border-border/40 pt-3 text-left w-full hover:bg-muted/30 transition-colors"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 flex items-center gap-1.5">
+            <ListChecks className="w-3 h-3" /> Preparación
+          </p>
           <p className="text-xs text-muted-foreground line-clamp-2">{recipe.instructions}</p>
-        </div>
+          <span className="text-xs text-primary font-medium mt-1 inline-block">Ver receta completa →</span>
+        </button>
       )}
     </div>
+  );
+}
+
+// ── Recipe Detail Dialog ──
+function RecipeDetailDialog({ recipe, onOpenChange, onEdit }: {
+  recipe: Recipe | null;
+  onOpenChange: (open: boolean) => void;
+  onEdit: () => void;
+}) {
+  if (!recipe) return null;
+  const cat = recipe.category as Category;
+  const imageUrl = getRecipeImageUrl(recipe.name);
+  const hasInstructions = !!(recipe.instructions && recipe.instructions.trim());
+  const steps = hasInstructions
+    ? recipe.instructions!.split(/\n+/).map(s => s.trim()).filter(Boolean)
+    : [];
+
+  return (
+    <Dialog open={!!recipe} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[560px] rounded-2xl p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <span className={cn(
+            "inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-semibold border mb-2",
+            CATEGORY_COLORS[cat]
+          )}>
+            {CATEGORY_LABELS[cat]}
+          </span>
+          <DialogTitle className="font-display text-2xl">{recipe.name}</DialogTitle>
+        </DialogHeader>
+
+        <div className="px-6 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
+          {/* Dish photo */}
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt={recipe.name}
+              loading="lazy"
+              className="w-full h-48 object-cover rounded-xl border border-border/50"
+            />
+          )}
+
+          {/* Ingredients */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+              <Utensils className="w-3 h-3" /> Ingredientes
+            </p>
+            {recipe.ingredients.length === 0 ? (
+              <p className="text-sm text-muted-foreground/60 italic">Sin ingredientes</p>
+            ) : (
+              <ul className="space-y-1">
+                {recipe.ingredients.map((ing, i) => (
+                  <li key={i} className="text-sm text-foreground/90 flex items-start gap-2">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                    {ing}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Instructions */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+              <ListChecks className="w-3 h-3" /> Preparación
+            </p>
+            {hasInstructions ? (
+              <div className="space-y-2">
+                {steps.map((step, i) => (
+                  <p key={i} className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{step}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground/60 italic">
+                Esta receta todavía no tiene instrucciones. Puedes añadirlas editándola.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="px-6 py-4 border-t border-border/40 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onEdit}
+            className="rounded-xl gap-2"
+          >
+            <Pencil className="w-4 h-4" /> Editar
+          </Button>
+          <Button
+            type="button"
+            onClick={() => { downloadRecipePdf(recipe).catch((e) => console.error(e)); }}
+            className="rounded-xl px-6 gap-2"
+          >
+            <FileDown className="w-4 h-4" /> Descargar PDF
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

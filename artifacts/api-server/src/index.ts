@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { seedIfEmpty } from "./lib/seed";
+import { seedIfEmpty, backfillInstructions } from "./lib/seed";
 import { pool } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
@@ -107,5 +107,6 @@ app.listen(port, () => {
   logger.info({ port }, "Server listening");
   autoMigrate()
     .then(() => seedIfEmpty())
+    .then(() => backfillInstructions())
     .catch((err) => logger.error({ err }, "Migration/seed error"));
 });

@@ -111,6 +111,54 @@ export const RECIPE_INSTRUCTIONS: Record<string, string> = {
     "3. Corta el lomo en rodajas, intercala queso entre ellas y mete al horno para gratinar.\n" +
     "4. Añade champiñones rehogados con mantequilla a la salsa.\n" +
     "5. Sirve con puré de patata para acompañar.",
+
+  "Alcachofas":
+    "1. Limpia las alcachofas: retira las hojas exteriores más duras, corta las puntas y pela el tallo dejando el corazón. Pártelas por la mitad o en cuartos y déjalas en agua con limón para que no se oxiden.\n" +
+    "2. Escúrrelas y sécalas bien. Ponlas en un cazo y cúbrelas con aceite de oliva virgen extra. Añade unos dientes de ajo, una pizca de sal y, si quieres, laurel o tomillo.\n" +
+    "3. Confita a fuego muy bajo (el aceite debe burbujear apenas, sin freír) durante 35-45 minutos, hasta que estén tiernas al pincharlas. Deja templar en el aceite.\n" +
+    "4. Calienta una plancha o sartén a fuego fuerte. Escurre las alcachofas y dóralas por ambos lados 2-3 minutos, hasta que queden crujientes y marcadas.\n" +
+    "5. Sírvelas calientes con sal en escamas y un hilo del propio aceite de confitar.",
+
+  "Arroz a la milanesa":
+    "1. Limpia y lamina los champiñones. Saltéalos en una sartén con un poco de aceite o mantequilla hasta que pierdan el agua y se doren. Reserva.\n" +
+    "2. En una cazuela, rehoga el arroz un par de minutos para que se nacare.\n" +
+    "3. Añade un buen chorro de vino blanco y deja que se evapore el alcohol.\n" +
+    "4. Ve añadiendo caldo caliente poco a poco, sin dejar de remover, hasta que el arroz esté cremoso y en su punto (unos 18 minutos).\n" +
+    "5. Incorpora los champiñones salteados y, fuera del fuego, una buena cantidad de queso rallado fuerte tipo parmesano. Mezcla bien.\n" +
+    "6. Sirve enseguida con más queso rallado por encima.",
+
+  "Arroz blanco con tomate y jamón York":
+    "1. Prepara un tomate frito casero: pocha un poco de cebolla o ajo en aceite, añade el tomate triturado, una pizca de sal y de azúcar, y deja reducir a fuego medio hasta que espese.\n" +
+    "2. Cuece el arroz en abundante agua con sal y un par de dientes de ajo durante unos 15-18 minutos. Escúrrelo.\n" +
+    "3. Saltea los taquitos de jamón York un par de minutos en una sartén con unas gotas de aceite.\n" +
+    "4. Sirve el arroz blanco (puedes moldearlo) y cúbrelo con el tomate frito caliente y el jamón York por encima.",
+
+  "Atún con tomate":
+    "1. Salpimienta los lomos de atún fresco y dóralos vuelta y vuelta en una plancha o sartén bien caliente con unas gotas de aceite, dejándolos jugosos por dentro. Reserva.\n" +
+    "2. Pica finamente la cebolla y póchala a fuego lento en una sartén con aceite de oliva hasta que esté tierna y transparente.\n" +
+    "3. Añade el tomate triturado, una pizca de sal y un poco de azúcar para corregir la acidez. Cocina a fuego medio unos 15-20 minutos, hasta que reduzca y espese.\n" +
+    "4. Corta el atún en trozos e incorpóralo a la salsa. Cocina un par de minutos más, solo para que se integre, sin que se reseque.\n" +
+    "5. Rectifica de sal y sirve, espolvoreado con perejil picado.",
+
+  "Berenjenas con mozzarella":
+    "1. Lava las berenjenas y córtalas por la mitad a lo largo. Haz unos cortes en cruz en la carne, sin llegar a la piel, y úntalas con un poco de aceite y sal.\n" +
+    "2. Ásalas en el horno a 200°C, con la carne hacia arriba, unos 25-30 minutos, hasta que estén tiernas.\n" +
+    "3. Mientras, prepara un sofrito de tomate: pocha cebolla picada, añade el tomate triturado, sal y un poco de azúcar, y deja reducir.\n" +
+    "4. Reparte el sofrito de tomate sobre las medias berenjenas asadas y cubre con mozzarella en lonchas o rallada.\n" +
+    "5. Gratina en el horno hasta que el queso se funda y se dore por encima. Sirve caliente.",
+
+  "Boquerones fritos":
+    "1. Limpia los boquerones: quítales la cabeza y las tripas y, si quieres, la espina central. Lávalos y sécalos bien.\n" +
+    "2. Sálalos y pásalos por harina (mejor harina especial para freír), sacudiendo el exceso.\n" +
+    "3. Calienta abundante aceite de oliva en una sartén. Cuando esté bien caliente, fríe los boquerones por tandas, sin amontonarlos, hasta que estén dorados y crujientes.\n" +
+    "4. Escúrrelos sobre papel de cocina.\n" +
+    "5. Sírvelos enseguida con unos gajos de limón.",
+
+  "Brócoli con mayonesa":
+    "1. Separa el brócoli en ramilletes y lávalos bien.\n" +
+    "2. Cuécelos al vapor o en agua hirviendo con sal entre 5 y 8 minutos, hasta que estén tiernos pero todavía firmes y de color verde vivo. Escúrrelos.\n" +
+    "3. Prepara una mayonesa casera: pon en el vaso de la batidora un huevo, el zumo de medio limón y media cucharadita de sal, y bate todo junto. Sin dejar de batir, ve añadiendo el aceite poco a poco hasta que emulsione y espese.\n" +
+    "4. Sirve el brócoli templado o frío con la mayonesa al lado o por encima.",
 };
 
 /**

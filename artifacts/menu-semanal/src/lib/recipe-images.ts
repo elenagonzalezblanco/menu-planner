@@ -19,6 +19,13 @@ const SLUGS_WITH_IMAGES = new Set<string>([
   "bacalao-con-tomate",
   "crema-de-zanahoria",
   "pechugas-de-pollo-empanadas",
+  "alcachofas",
+  "arroz-a-la-milanesa",
+  "arroz-blanco-con-tomate-y-jamon-york",
+  "atun-con-tomate",
+  "berenjenas-con-mozzarella",
+  "boquerones-fritos",
+  "brocoli-con-mayonesa",
 ]);
 
 /** Returns the public URL of the dish photo for a recipe, or null if none. */

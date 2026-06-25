@@ -57,6 +57,14 @@ const SLUGS_WITH_IMAGES = new Set<string>([
   "mousse-de-chocolate",
   "patatas-de-remoste",
   "pechugas-de-pollo-a-la-mostaza",
+  "pechugas-villaroy",
+  "pimientos-del-padron",
+  "pisto",
+  "pizza",
+  "pollo-asado",
+  "pulpo-a-la-gallega",
+  "pure-de-verdura",
+  "quiche",
 ]);
 
 /** Returns the public URL of the dish photo for a recipe, or null if none. */

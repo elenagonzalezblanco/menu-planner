@@ -48,6 +48,15 @@ const SLUGS_WITH_IMAGES = new Set<string>([
   "huevos-con-bechamel",
   "huevos-fritos-con-patatas",
   "huevos-revueltos-con-jamon-y-champinones",
+  "jamoncitos",
+  "judias-verdes-con-jamon",
+  "lasana",
+  "lentejas",
+  "magra-con-tomate",
+  "merluza-frita-rebozada",
+  "mousse-de-chocolate",
+  "patatas-de-remoste",
+  "pechugas-de-pollo-a-la-mostaza",
 ]);
 
 /** Returns the public URL of the dish photo for a recipe, or null if none. */

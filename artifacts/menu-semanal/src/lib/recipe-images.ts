@@ -26,6 +26,20 @@ const SLUGS_WITH_IMAGES = new Set<string>([
   "berenjenas-con-mozzarella",
   "boquerones-fritos",
   "brocoli-con-mayonesa",
+  "calabacin-con-tomate-arcoiris",
+  "calamares-fritos",
+  "carne-guisada",
+  "chuleta-de-sajonia",
+  "cinta-de-lomo",
+  "cogollos-con-anchoas",
+  "consome",
+  "dorada-o-lubina-a-la-sal",
+  "ensalada-caprese",
+  "ensalada-de-espinacas",
+  "ensalada-de-rucula",
+  "ensalada-de-verano",
+  "ensalada-gourmet",
+  "ensalada-griega",
 ]);
 
 /** Returns the public URL of the dish photo for a recipe, or null if none. */

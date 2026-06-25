@@ -40,6 +40,14 @@ const SLUGS_WITH_IMAGES = new Set<string>([
   "ensalada-de-verano",
   "ensalada-gourmet",
   "ensalada-griega",
+  "ensaladilla-rusa",
+  "espaguetis",
+  "filetes-de-ternera-a-la-plancha",
+  "gazpacho",
+  "guisantes-con-jamon",
+  "huevos-con-bechamel",
+  "huevos-fritos-con-patatas",
+  "huevos-revueltos-con-jamon-y-champinones",
 ]);
 
 /** Returns the public URL of the dish photo for a recipe, or null if none. */

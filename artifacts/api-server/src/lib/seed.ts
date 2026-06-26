@@ -112,6 +112,17 @@ const RECIPE_RENAMES: Record<string, string> = {
 
 const RECIPES_TO_DELETE = ["Verdura Gonzalo", "Pure de verdura"];
 
+// Recipes whose category should be corrected to a fixed value across all users.
+const CATEGORY_FIXES: Record<string, string> = {
+  "Croquetas": "segundo",
+  "Huevos con bechamel": "segundo",
+  "Huevos fritos con patatas": "segundo",
+  "Huevos revueltos con jamón y champiñones": "segundo",
+  "Jamoncitos": "segundo",
+  "Lasaña": "segundo",
+  "Pizza": "segundo",
+};
+
 const INGREDIENT_ADDITIONS: Record<string, string[]> = {
   "Lasaña": ["130 g de zanahorias", "200 g de champiñones frescos"],
   "Mousse de chocolate": ["1 chorrito de coñac"],
@@ -151,6 +162,11 @@ export async function migrateRecipeData() {
     // 3. Remove duplicate recipes
     for (const name of RECIPES_TO_DELETE) {
       await db.delete(recipesTable).where(eq(recipesTable.name, name));
+    }
+
+    // 4. Fix recipe categories across all users
+    for (const [name, category] of Object.entries(CATEGORY_FIXES)) {
+      await db.update(recipesTable).set({ category }).where(eq(recipesTable.name, name));
     }
 
     logger.info("Recipe data migration complete");

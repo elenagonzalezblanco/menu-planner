@@ -213,7 +213,7 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
   },
   {
     "name": "Croquetas",
-    "category": "otro",
+    "category": "segundo",
     "ingredients": [
       "Harina",
       "Pan rallado",
@@ -399,7 +399,7 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
   },
   {
     "name": "Huevos con bechamel",
-    "category": "otro",
+    "category": "segundo",
     "ingredients": [
       "Huevos",
       "Harina",
@@ -410,7 +410,7 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
   },
   {
     "name": "Huevos fritos con patatas",
-    "category": "otro",
+    "category": "segundo",
     "ingredients": [
       "Huevos",
       "Patatas",
@@ -420,7 +420,7 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
   },
   {
     "name": "Huevos revueltos con jamón y champiñones",
-    "category": "otro",
+    "category": "segundo",
     "ingredients": [
       "Huevos",
       "Jamón Serrano",
@@ -430,7 +430,7 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
   },
   {
     "name": "Jamoncitos",
-    "category": "otro",
+    "category": "segundo",
     "ingredients": [
       "Jamón cortado 1 dedo de gordo",
       "Harina",
@@ -451,7 +451,7 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
   },
   {
     "name": "Lasaña",
-    "category": "otro",
+    "category": "segundo",
     "ingredients": [
       "Maizena",
       "Harina",
@@ -651,7 +651,7 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
   },
   {
     "name": "Pizza",
-    "category": "otro",
+    "category": "segundo",
     "ingredients": [
       "Harina",
       "Tomate",

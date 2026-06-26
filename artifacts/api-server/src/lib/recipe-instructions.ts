@@ -1,11 +1,17 @@
+import { GENERATED_INSTRUCTIONS } from "./recipe-instructions-generated";
+
 /**
  * Canonical preparation instructions for recipes, extracted from the user's
  * own recipe PDFs. Keyed by the recipe `name` exactly as stored in the DB.
  *
  * Used by the startup backfill to populate `recipes.instructions` for recipes
  * that don't have instructions yet (see `backfillInstructions`).
+ *
+ * `PDF_INSTRUCTIONS` are transcribed from the original recipe PDFs;
+ * `GENERATED_INSTRUCTIONS` are AI-generated and approved by the user. Both are
+ * merged into `RECIPE_INSTRUCTIONS`.
  */
-export const RECIPE_INSTRUCTIONS: Record<string, string> = {
+const PDF_INSTRUCTIONS: Record<string, string> = {
   "Albóndigas":
     "1. Coloca la carne picada en un bol grande.\n" +
     "2. En el vaso de una batidora pon los huevos, la leche, el vino blanco, los ajos picados, el pan rallado, sal, pimienta y perejil fresco picado. Bate hasta integrar.\n" +
@@ -111,6 +117,11 @@ export const RECIPE_INSTRUCTIONS: Record<string, string> = {
     "3. Corta el lomo en rodajas, intercala queso entre ellas y mete al horno para gratinar.\n" +
     "4. Añade champiñones rehogados con mantequilla a la salsa.\n" +
     "5. Sirve con puré de patata para acompañar.",
+};
+
+export const RECIPE_INSTRUCTIONS: Record<string, string> = {
+  ...PDF_INSTRUCTIONS,
+  ...GENERATED_INSTRUCTIONS,
 };
 
 /**

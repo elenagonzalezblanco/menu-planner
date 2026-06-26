@@ -96,6 +96,57 @@ export async function seedIfEmpty() {
 }
 
 /**
+ * One-time-style data migrations for recipe records. Idempotent and safe to run
+ * on every startup: renames, ingredient additions and the removal of a
+ * duplicate recipe. Must run BEFORE backfillInstructions so the renamed recipe
+ * gets matched by name.
+ */
+const INGREDIENT_ADDITIONS: Record<string, string[]> = {
+  "Lasaña": ["130 g de zanahorias", "200 g de champiñones frescos"],
+  "Mousse de chocolate": ["1 chorrito de coñac"],
+  "Pizza": ["1 huevo", "1 sobre de levadura en polvo", "Aceite de oliva"],
+  "Pollo asado": ["Cebolla frita", "Limón"],
+  "Quiche": ["250 g de nata líquida"],
+  "Pastel de sandwich": ["Huevo"],
+};
+
+export async function migrateRecipeData() {
+  try {
+    // 1. Rename "Sandwich" -> "Pastel de sandwich"
+    await db
+      .update(recipesTable)
+      .set({ name: "Pastel de sandwich" })
+      .where(eq(recipesTable.name, "Sandwich"));
+
+    // 2. Add missing ingredients (idempotent: only append if not present)
+    for (const [name, toAdd] of Object.entries(INGREDIENT_ADDITIONS)) {
+      const rows = await db
+        .select({ id: recipesTable.id, ingredients: recipesTable.ingredients })
+        .from(recipesTable)
+        .where(eq(recipesTable.name, name));
+      for (const row of rows) {
+        const current = row.ingredients ?? [];
+        const lower = current.map((i) => i.toLowerCase());
+        const missing = toAdd.filter((i) => !lower.includes(i.toLowerCase()));
+        if (missing.length > 0) {
+          await db
+            .update(recipesTable)
+            .set({ ingredients: [...current, ...missing] })
+            .where(eq(recipesTable.id, row.id));
+        }
+      }
+    }
+
+    // 3. Remove duplicate recipe "Verdura Gonzalo" (duplicate of "Puré de verdura")
+    await db.delete(recipesTable).where(eq(recipesTable.name, "Verdura Gonzalo"));
+
+    logger.info("Recipe data migration complete");
+  } catch (err) {
+    logger.error({ err }, "Failed to migrate recipe data");
+  }
+}
+
+/**
  * Fills in preparation instructions for recipes that don't have them yet.
  *
  * Idempotent: only updates rows whose `instructions` is empty/null or an old

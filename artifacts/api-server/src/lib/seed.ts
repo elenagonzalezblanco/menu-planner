@@ -1,5 +1,5 @@
 import { db, recipesTable, usersTable } from "@workspace/db";
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { eq, inArray, isNull, or } from "drizzle-orm";
 import { logger } from "./logger";
 import { RECIPE_INSTRUCTIONS, REPLACEABLE_PLACEHOLDERS } from "./recipe-instructions";
 import { CANONICAL_RECIPES } from "./canonical-recipes";
@@ -199,23 +199,46 @@ export async function standardizeRecipesForAllUsers() {
  * Idempotent: only updates rows whose `instructions` is empty/null or an old
  * seeded placeholder, so it never clobbers instructions a user has edited.
  * Runs on every startup and applies to all users that have these recipes.
+ *
+ * Matches recipes to instructions by a normalized slug (case/accent-insensitive)
+ * so small naming variants (e.g. "Pastel de Sandwich" vs "Pastel de sandwich")
+ * still get filled.
  */
+function slugifyName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
 export async function backfillInstructions() {
   try {
     const placeholders = [...REPLACEABLE_PLACEHOLDERS];
-    let updated = 0;
+    const bySlug = new Map<string, string>();
     for (const [name, instructions] of Object.entries(RECIPE_INSTRUCTIONS)) {
-      const fillable = or(
-        isNull(recipesTable.instructions),
-        eq(recipesTable.instructions, ""),
-        placeholders.length > 0 ? inArray(recipesTable.instructions, placeholders) : undefined,
-      );
-      const result = await db
-        .update(recipesTable)
-        .set({ instructions })
-        .where(and(eq(recipesTable.name, name), fillable))
-        .returning({ id: recipesTable.id });
-      updated += result.length;
+      bySlug.set(slugifyName(name), instructions);
+    }
+    const fillable = or(
+      isNull(recipesTable.instructions),
+      eq(recipesTable.instructions, ""),
+      placeholders.length > 0 ? inArray(recipesTable.instructions, placeholders) : undefined,
+    );
+    const rows = await db
+      .select({ id: recipesTable.id, name: recipesTable.name })
+      .from(recipesTable)
+      .where(fillable);
+    let updated = 0;
+    for (const row of rows) {
+      const instructions = bySlug.get(slugifyName(row.name));
+      if (instructions) {
+        await db
+          .update(recipesTable)
+          .set({ instructions })
+          .where(eq(recipesTable.id, row.id));
+        updated += 1;
+      }
     }
     logger.info({ updated }, "Recipe instructions backfill complete");
   } catch (err) {

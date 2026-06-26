@@ -65,6 +65,19 @@ const SLUGS_WITH_IMAGES = new Set<string>([
   "pulpo-a-la-gallega",
   "pure-de-verdura",
   "quiche",
+  "rape",
+  "revuelto-de-ajetes-y-gambas",
+  "salmon",
+  "salmorejo",
+  "sandwich",
+  "pastel-de-sandwich",
+  "setas-a-la-plancha",
+  "solomillo-al-roquefort",
+  "sopa-de-cebolla",
+  "sopa-de-letras",
+  "tomate-frito",
+  "tortilla-de-patata",
+  "verduras-a-la-plancha",
 ]);
 
 /** Returns the public URL of the dish photo for a recipe, or null if none. */

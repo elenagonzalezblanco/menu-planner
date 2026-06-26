@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import usersRouter from "./users";
+import publicRouter from "./public";
 import recipesRouter from "./recipes";
 import menusRouter from "./menus";
 import shoppingRouter from "./shopping";
@@ -15,6 +16,7 @@ const router: IRouter = Router();
 // Public routes (no auth needed)
 router.use(healthRouter);
 router.use(usersRouter);
+router.use(publicRouter);
 
 // Protected routes (require X-User-Id header)
 router.use(requireUser as any);

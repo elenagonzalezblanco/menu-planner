@@ -11,6 +11,7 @@ const UserSelector = lazy(() => import("@/components/UserSelector").then(m => ({
 
 // Lazy-loaded pages for faster initial load
 const RecipesPage = lazy(() => import("@/pages/Recipes"));
+const PublicRecipesPage = lazy(() => import("@/pages/PublicRecipes"));
 const MenuPage = lazy(() => import("@/pages/Menu"));
 const ShoppingPage = lazy(() => import("@/pages/Shopping"));
 const MercadonaPage = lazy(() => import("@/pages/Mercadona"));
@@ -46,6 +47,16 @@ function AppShell() {
     const params = new URLSearchParams(window.location.search);
     return params.get("reset");
   });
+
+  // Public recipe catalogue at /recetas — accessible before login, not in the menu.
+  const path = window.location.pathname.replace(/\/$/, "");
+  if (path.endsWith("/recetas")) {
+    return (
+      <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-background"><div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+        <PublicRecipesPage />
+      </Suspense>
+    );
+  }
 
   if (isLoading) {
     return (

@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { seedIfEmpty, backfillInstructions, migrateRecipeData } from "./lib/seed";
+import { seedIfEmpty, backfillInstructions, migrateRecipeData, standardizeRecipesForAllUsers } from "./lib/seed";
 import { pool } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
@@ -108,6 +108,7 @@ app.listen(port, () => {
   autoMigrate()
     .then(() => seedIfEmpty())
     .then(() => migrateRecipeData())
+    .then(() => standardizeRecipesForAllUsers())
     .then(() => backfillInstructions())
     .catch((err) => logger.error({ err }, "Migration/seed error"));
 });

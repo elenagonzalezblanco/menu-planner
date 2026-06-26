@@ -1,7 +1,8 @@
-import { db, recipesTable } from "@workspace/db";
+import { db, recipesTable, usersTable } from "@workspace/db";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { logger } from "./logger";
 import { RECIPE_INSTRUCTIONS, REPLACEABLE_PLACEHOLDERS } from "./recipe-instructions";
+import { CANONICAL_RECIPES } from "./canonical-recipes";
 
 export const DEFAULT_RECIPES = [
   { name: "Sopa de cebolla", category: "primero", ingredients: ["Cebollas", "Harina", "Mantequilla", "Vino blanco", "Queso gouda"], instructions: "" },
@@ -97,26 +98,36 @@ export async function seedIfEmpty() {
 
 /**
  * One-time-style data migrations for recipe records. Idempotent and safe to run
- * on every startup: renames, ingredient additions and the removal of a
- * duplicate recipe. Must run BEFORE backfillInstructions so the renamed recipe
- * gets matched by name.
+ * on every startup: renames, ingredient additions and the removal of duplicate
+ * recipes. Must run BEFORE backfillInstructions so renamed recipes get matched
+ * by name.
  */
+const RECIPE_RENAMES: Record<string, string> = {
+  "Sandwich": "Pastel de Sandwich",
+  "Pastel de sandwich": "Pastel de Sandwich",
+  "Albóndigas": "Albóndigas con tomate",
+  "Patatas de remoste": "Patatas con chorizo",
+  "Salmón": "Salmón a la sal",
+};
+
+const RECIPES_TO_DELETE = ["Verdura Gonzalo", "Pure de verdura"];
+
 const INGREDIENT_ADDITIONS: Record<string, string[]> = {
   "Lasaña": ["130 g de zanahorias", "200 g de champiñones frescos"],
   "Mousse de chocolate": ["1 chorrito de coñac"],
   "Pizza": ["1 huevo", "1 sobre de levadura en polvo", "Aceite de oliva"],
   "Pollo asado": ["Cebolla frita", "Limón"],
   "Quiche": ["250 g de nata líquida"],
-  "Pastel de sandwich": ["Huevo"],
+  "Pastel de Sandwich": ["Huevo"],
+  "Paella": ["Cebolla", "Salmorreta", "Guisantes (opcional)", "Bogavante", "Limón"],
 };
 
 export async function migrateRecipeData() {
   try {
-    // 1. Rename "Sandwich" -> "Pastel de sandwich"
-    await db
-      .update(recipesTable)
-      .set({ name: "Pastel de sandwich" })
-      .where(eq(recipesTable.name, "Sandwich"));
+    // 1. Renames (standardize names across all users)
+    for (const [from, to] of Object.entries(RECIPE_RENAMES)) {
+      await db.update(recipesTable).set({ name: to }).where(eq(recipesTable.name, from));
+    }
 
     // 2. Add missing ingredients (idempotent: only append if not present)
     for (const [name, toAdd] of Object.entries(INGREDIENT_ADDITIONS)) {
@@ -137,12 +148,48 @@ export async function migrateRecipeData() {
       }
     }
 
-    // 3. Remove duplicate recipe "Verdura Gonzalo" (duplicate of "Puré de verdura")
-    await db.delete(recipesTable).where(eq(recipesTable.name, "Verdura Gonzalo"));
+    // 3. Remove duplicate recipes
+    for (const name of RECIPES_TO_DELETE) {
+      await db.delete(recipesTable).where(eq(recipesTable.name, name));
+    }
 
     logger.info("Recipe data migration complete");
   } catch (err) {
     logger.error({ err }, "Failed to migrate recipe data");
+  }
+}
+
+/**
+ * Standardizes the recipe catalogue across every user: ensures each user has
+ * all canonical recipes. Idempotent — only inserts the recipes a user is
+ * missing (matched by name); recipes a user created themselves are left
+ * untouched. Run AFTER migrateRecipeData so names are already normalized.
+ */
+export async function standardizeRecipesForAllUsers() {
+  try {
+    const users = await db.select({ id: usersTable.id }).from(usersTable);
+    let inserted = 0;
+    for (const user of users) {
+      const existing = await db
+        .select({ name: recipesTable.name })
+        .from(recipesTable)
+        .where(eq(recipesTable.userId, user.id));
+      const have = new Set(existing.map((r) => r.name));
+      const toInsert = CANONICAL_RECIPES.filter((c) => !have.has(c.name)).map((c) => ({
+        userId: user.id,
+        name: c.name,
+        category: c.category,
+        ingredients: c.ingredients,
+        instructions: c.instructions,
+      }));
+      if (toInsert.length > 0) {
+        await db.insert(recipesTable).values(toInsert);
+        inserted += toInsert.length;
+      }
+    }
+    logger.info({ inserted, users: users.length }, "Recipe standardization complete");
+  } catch (err) {
+    logger.error({ err }, "Failed to standardize recipes");
   }
 }
 

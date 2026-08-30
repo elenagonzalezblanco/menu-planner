@@ -1,0 +1,54 @@
+name: Health Monitor — Daily
+
+# Runs once a day, verifies the app is actually up (DB-backed health endpoint),
+# self-heals (starts DB / restarts App Service) and emails on unrecoverable failure.
+# Can also be launched on demand from the Actions tab (workflow_dispatch).
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC ≈ 09:00 Europe/Madrid
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: health-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    environment: keep-alive # reuse the existing OIDC federated credential
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: 2f65786d-ad3f-480d-a0eb-a41d45de8135
+          tenant-id: 16b3c013-d300-468d-ac64-7eda0820b6d3
+          subscription-id: 5fd714fb-9dfc-4176-ac01-ef4087e8c47f
+
+      - name: Prepare email dependency
+        run: |
+          mkdir -p "$RUNNER_TEMP/acs"
+          echo '{"name":"acs-alert","private":true}' > "$RUNNER_TEMP/acs/package.json"
+          npm install --prefix "$RUNNER_TEMP/acs" @azure/communication-email@^1 --no-audit --no-fund
+
+      - name: Run daily health check
+        env:
+          RG: elenagbgpersonal
+          APP: micocina
+          PG: menu-planner-pg-elena2
+          HEALTH_URL: https://micocina.azurewebsites.net/api/healthz
+          ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
+          ACS_CONNECTION_STRING: ${{ secrets.ACS_CONNECTION_STRING }}
+          ACS_MODULES_BASE: ${{ runner.temp }}/acs/package.json
+        run: |
+          chmod +x scripts/health-monitor/check.sh
+          scripts/health-monitor/check.sh

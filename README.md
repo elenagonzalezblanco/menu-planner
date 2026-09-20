@@ -14,6 +14,20 @@ A full-stack web application for weekly meal planning powered by a conversationa
 - **Email** — Send menus via Azure Communication Services with PDF attachments. Includes welcome emails on registration.
 - **Multi-User** — Per-user recipes, menus, AI settings, and credentials. Password authentication with email-based reset tokens.
 
+## GitHub Pages API configuration
+
+The Pages build reads the repository secret `API_URL` into `VITE_API_URL`.
+For the current production backend, its value is
+`https://micocina.azurewebsites.net` (not the obsolete
+`https://menu-planner-api.azurewebsites.net`). This public URL is embedded at
+build time, so changing the secret requires a new **Deploy to GitHub Pages** run.
+
+Before publishing, `scripts/check-public-api.mjs` checks database-backed health,
+CORS for the Pages origin and the public login validation contract using an
+empty request. It sends no passwords and changes no accounts. A failed check
+stops deployment rather than replacing the live frontend with a broken build.
+Run its tests with `node --test scripts/check-public-api.test.mjs`.
+
 ## Tech Stack
 
 | Layer | Technologies |

@@ -16,6 +16,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: ${{ secrets.API_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,13 +27,16 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+      - name: Test public API preflight
+        run: node --test scripts/check-public-api.test.mjs
+      - name: Check production API and public login
+        run: node scripts/check-public-api.mjs
       - run: pnpm install --no-frozen-lockfile
       - name: Build
         working-directory: artifacts/menu-semanal
         run: pnpm build
         env:
           VITE_BASE_PATH: /menu-planner/
-          VITE_API_URL: ${{ secrets.API_URL }}
           VITE_AZURE_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
           VITE_AZURE_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
           VITE_AZURE_API_KEY: ${{ secrets.AZURE_OPENAI_KEY }}

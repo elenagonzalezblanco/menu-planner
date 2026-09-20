@@ -100,6 +100,14 @@ export default function ShoppingPage() {
             <Store className="w-5 h-5 mr-2" />
             Buscar en Mercadona
           </Button>
+          <Button
+            onClick={() => setLocation("/carrefour")}
+            className="rounded-xl px-6 bg-[#004E9B] hover:bg-[#003B77] text-white shadow-lg shadow-[#004E9B]/30"
+            size="lg"
+          >
+            <Store className="w-5 h-5 mr-2" />
+            Buscar en Carrefour
+          </Button>
         </div>
       </div>
 

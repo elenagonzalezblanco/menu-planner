@@ -9,7 +9,7 @@ A full-stack web application for weekly meal planning powered by a conversationa
 - **Conversational Menu Editing** — Refine and modify menus incrementally through a chat interface with full context awareness. The AI assistant only changes what you ask for.
 - **Drag & Drop** — Visually rearrange meals across days and slots.
 - **Shopping List** — Auto-consolidated ingredient list generated from the active menu, grouped by normalized ingredient with recipe attribution.
-- **Mercadona Automation** — Playwright-based browser automation that searches Mercadona's product API and adds ingredients to your online cart.
+- **Supermarket Search** — Open every shopping-list ingredient directly in Mercadona or Carrefour. The backend also retains Mercadona cart automation support.
 - **PDF Export** — Export menus as A4 landscape table-format PDFs using a custom pure-Node generator (no external dependencies).
 - **Email** — Send menus via Azure Communication Services with PDF attachments. Includes welcome emails on registration.
 - **Multi-User** — Per-user recipes, menus, AI settings, and credentials. Password authentication with email-based reset tokens.
@@ -35,7 +35,7 @@ A full-stack web application for weekly meal planning powered by a conversationa
 graph TB
     subgraph Frontend["Frontend (artifacts/menu-semanal)"]
         UI["React 19 + Vite 7<br/>Tailwind CSS + shadcn/ui"]
-        Pages["Pages:<br/>/recetas /menu /shopping /mercadona"]
+        Pages["Pages:<br/>/recetas /menu /shopping<br/>/mercadona /carrefour"]
     end
 
     subgraph APIClient["API Client (lib/api-client-react)"]
@@ -131,9 +131,16 @@ Express 5 API server. Routes use `@workspace/api-zod` for validation and `@works
 
 React + Vite frontend with shadcn/ui and Tailwind CSS.
 
-- **Pages**: Recipes, Weekly Menu, Shopping List, Mercadona
+- **Pages**: Recipes, Weekly Menu, Shopping List, Mercadona, Carrefour
 - **Data**: React Query with hooks generated from `@workspace/api-client-react`
 - **Interaction**: Drag & drop menu editing, conversational AI chat
+
+From **Lista de Compra**, choose **Buscar en Mercadona** or **Buscar en Carrefour**.
+Both pages include menu ingredients and manual additions. Each ingredient opens
+the supermarket's search in a new tab; choose products and complete checkout on
+the supermarket website. These pages do not add products to a cart automatically
+or store supermarket credentials. Both supermarkets are also available in the
+desktop and mobile navigation.
 
 ### `lib/api-spec`
 

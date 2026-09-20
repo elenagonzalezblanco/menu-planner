@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/menu", label: "Menú Semanal", icon: CalendarDays },
   { href: "/shopping", label: "Lista de Compra", icon: ShoppingBasket },
   { href: "/mercadona", label: "Mercadona", icon: ShoppingBag },
+  { href: "/carrefour", label: "Carrefour", icon: ShoppingBag },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

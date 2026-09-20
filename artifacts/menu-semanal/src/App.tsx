@@ -15,6 +15,7 @@ const PublicRecipesPage = lazy(() => import("@/pages/PublicRecipes"));
 const MenuPage = lazy(() => import("@/pages/Menu"));
 const ShoppingPage = lazy(() => import("@/pages/Shopping"));
 const MercadonaPage = lazy(() => import("@/pages/Mercadona"));
+const CarrefourPage = lazy(() => import("@/pages/Carrefour"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +35,7 @@ function Router() {
           <Route path="/menu" component={MenuPage} />
           <Route path="/shopping" component={ShoppingPage} />
           <Route path="/mercadona" component={MercadonaPage} />
+          <Route path="/carrefour" component={CarrefourPage} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

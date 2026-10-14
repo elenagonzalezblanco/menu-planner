@@ -3,7 +3,7 @@ import { db, usersTable, recipesTable, passwordResetTokensTable } from "@workspa
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { createHash, randomBytes } from "crypto";
 import { EmailClient } from "@azure/communication-email";
-import { DEFAULT_RECIPES } from "../lib/seed";
+import { CANONICAL_RECIPES } from "../lib/canonical-recipes";
 
 const router: IRouter = Router();
 
@@ -96,9 +96,9 @@ router.post("/users", async (req, res) => {
         mercadonaEmail: mercadonaEmail?.trim() || null,
       })
       .returning();
-    // Seed default recipes for the new user
+    // Seed the canonical recipe catalogue for the new user
     try {
-      const recipesWithUser = DEFAULT_RECIPES.map(r => ({ ...r, userId: user.id }));
+      const recipesWithUser = CANONICAL_RECIPES.map(r => ({ ...r, userId: user.id }));
       await db.insert(recipesTable).values(recipesWithUser);
     } catch { /* non-fatal — user created but recipes seed failed */ }
     // Send welcome email (non-blocking, non-fatal)

@@ -19,7 +19,7 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
       "Perejil",
       "carne picada"
     ],
-    "instructions": "1. En un bol, mezcla la carne picada (mitad cerdo, mitad ternera) con los 2 huevos, el ajo picadito, el perejil, sal y pan rallado (o pan duro remojado y escurrido) hasta tener una masa homogénea.\n2. Forma bolitas iguales con las manos y pásalas ligeramente por harina.\n3. Fríelas en aceite caliente, dorándolas por fuera (no hace falta que se hagan del todo por dentro). Reserva.\n4. Prepara una salsa de tomate: pocha cebolla picada, añade el tomate triturado, sal y una pizca de azúcar, y deja reducir.\n5. Incorpora las albóndigas a la salsa y cocínalas a fuego lento unos 15-20 minutos, hasta que estén hechas y la salsa haya espesado.\n6. Sirve calientes con su salsa."
+    "instructions": "1. Coloca la carne picada en un bol grande.\n2. En el vaso de una batidora pon los huevos, la leche, el vino blanco, los ajos picados, el pan rallado, sal, pimienta y perejil fresco picado. Bate hasta integrar.\n3. Vierte la mezcla sobre la carne y amasa bien. Rectifica de sal.\n4. Forma bolas iguales y pásalas por harina, sacudiendo el exceso.\n5. Fríelas por tandas en abundante aceite caliente hasta dorarlas.\n6. Sírvelas solas o con salsa de tomate."
   },
   {
     "name": "Alcachofas",
@@ -575,7 +575,8 @@ export const CANONICAL_RECIPES: CanonicalRecipe[] = [
       "Pan bimbo",
       "Jamón york",
       "Queso lonchas",
-      "Nata"
+      "Nata",
+      "Huevo"
     ],
     "instructions": "(Esta receta es el \"Pastel de sándwich\", al horno.)\n1. Bate huevo y mézclalo con nata líquida en un bol; ahí mojarás el pan.\n2. Usa un molde alargado y estrecho, del mismo ancho que las rebanadas de pan de molde.\n3. Pon una primera capa de rebanadas de pan mojadas en la mezcla de nata y huevo. Encima, una capa de queso en lonchas y jamón york.\n4. Repite: otra capa de pan mojado, queso y jamón... así sucesivamente hasta llenar el molde, terminando con pan (y un poco de queso por encima para gratinar).\n5. Hornea a 175-180°C unos 30 minutos, hasta que esté bien cocido y el queso derretido y dorado.\n6. Deja templar un poco, desmolda y córtalo en rebanadas para servir."
   },

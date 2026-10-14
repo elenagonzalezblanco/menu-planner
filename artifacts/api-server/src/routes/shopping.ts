@@ -3,6 +3,8 @@ import { db, recipesTable, weeklyMenusTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { GenerateShoppingListBody, GetShoppingListParams } from "@workspace/api-zod";
 import type { AuthenticatedRequest } from "../middlewares/auth";
+import { listWhatsAppIngredients } from "../lib/whatsapp-store";
+import { mergeWhatsAppIngredients } from "../lib/whatsapp";
 
 const router: IRouter = Router();
 
@@ -43,7 +45,7 @@ router.post("/shopping-list/generate", async (req: AuthenticatedRequest, res) =>
 
     res.json({
       menuId: body.menuId,
-      items,
+      items: mergeWhatsAppIngredients(items, await listWhatsAppIngredients(userId)),
       generatedAt: new Date().toISOString(),
     });
   } catch (err) {
@@ -56,6 +58,14 @@ router.get("/shopping-list/:menuId", async (req: AuthenticatedRequest, res) => {
   try {
     const { menuId } = GetShoppingListParams.parse({ menuId: parseInt(req.params.menuId as string) });
     const userId = req.user!.id;
+    if (menuId === 0) {
+      res.json({
+        menuId: 0,
+        items: mergeWhatsAppIngredients([], await listWhatsAppIngredients(userId)),
+        generatedAt: new Date().toISOString(),
+      });
+      return;
+    }
     const [menu] = await db.select().from(weeklyMenusTable)
       .where(and(eq(weeklyMenusTable.id, menuId), eq(weeklyMenusTable.userId, userId)));
     if (!menu) { res.status(404).json({ error: "Menu not found" }); return; }
@@ -89,10 +99,11 @@ router.get("/shopping-list/:menuId", async (req: AuthenticatedRequest, res) => {
 
     res.json({
       menuId,
-      items,
+      items: mergeWhatsAppIngredients(items, await listWhatsAppIngredients(userId)),
       generatedAt: new Date().toISOString(),
     });
   } catch (err) {
+    req.log?.error("Could not load shopping list");
     res.status(500).json({ error: "Error fetching shopping list" });
   }
 });

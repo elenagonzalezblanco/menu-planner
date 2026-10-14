@@ -2,6 +2,9 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { seedIfEmpty, backfillInstructions, migrateRecipeData, standardizeRecipesForAllUsers } from "./lib/seed";
 import { pool } from "@workspace/db";
+import { initializeEmailOutbox, startEmailWorker } from "./lib/email-service";
+import { startEmailBootstrap } from "./lib/email-bootstrap";
+import { initializeWhatsAppService, startWhatsAppWorker } from "./lib/whatsapp-service";
 
 const rawPort = process.env["PORT"];
 
@@ -105,10 +108,33 @@ async function autoMigrate() {
 // Start listening immediately, then run migrations in background
 app.listen(port, () => {
   logger.info({ port }, "Server listening");
-  autoMigrate()
-    .then(() => seedIfEmpty())
-    .then(() => migrateRecipeData())
-    .then(() => standardizeRecipesForAllUsers())
-    .then(() => backfillInstructions())
-    .catch((err) => logger.error({ err }, "Migration/seed error"));
+  const stopBootstrap = startEmailBootstrap({
+    migrate: autoMigrate,
+    async initializeOutbox() {
+      await initializeEmailOutbox();
+      await initializeWhatsAppService();
+    },
+    startWorker() {
+      const stopEmail = startEmailWorker();
+      const stopWhatsApp = startWhatsAppWorker();
+      return () => { stopEmail(); stopWhatsApp(); };
+    },
+    async seed(isStopped) {
+      for (const step of [seedIfEmpty, migrateRecipeData, standardizeRecipesForAllUsers, backfillInstructions]) {
+        if (isStopped()) return;
+        await step();
+      }
+    },
+    log(fields) {
+      if (fields.event === "retry-scheduled") {
+        logger.error(fields, "Database/email initialization failed; retry scheduled");
+      } else if (fields.event === "seed-failed") {
+        logger.error(fields, "Seeding failed; email worker remains running");
+      } else {
+        logger.info(fields, "Database/email bootstrap");
+      }
+    },
+  });
+  process.once("SIGTERM", stopBootstrap);
+  process.once("SIGINT", stopBootstrap);
 });

@@ -1,23 +1,26 @@
 import { useShoppingList } from "@/hooks/use-shopping";
 import { useMenus } from "@/hooks/use-menus";
 import { useExtraIngredients } from "@/hooks/use-extra-ingredients";
-import { useUser } from "@/contexts/UserContext";
+import { useEmail } from "@/contexts/EmailContext";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, CheckCircle2, Store, Plus, X, Mail } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { WhatsAppSettings } from "@/components/WhatsAppSettings";
+import { useWhatsAppIngredients } from "@/hooks/use-whatsapp";
 
 export default function ShoppingPage() {
   const { data: menus = [] } = useMenus();
   const latestMenu = menus.length > 0 ? menus[0] : null;
-  const { data: shoppingList, isLoading } = useShoppingList(latestMenu?.id ?? 0);
+  const { data: shoppingList, isLoading, isError } = useShoppingList(latestMenu?.id ?? 0);
   const { items: extraItems, add: addExtra, remove: removeExtra } = useExtraIngredients(latestMenu?.id);
-  const { currentUser } = useUser();
+  const { send: sendEmail, busy: emailBusy } = useEmail();
   const [, setLocation] = useLocation();
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [newIngredient, setNewIngredient] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const whatsapp = useWhatsAppIngredients();
 
   const toggleItem = (ingredient: string) => {
     const next = new Set(checkedItems);
@@ -34,39 +37,13 @@ export default function ShoppingPage() {
     inputRef.current?.focus();
   };
 
-  const sendShoppingByEmail = async () => {
-    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-    try {
-      const res = await fetch(`${API_URL}/api/email/shopping`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": String(currentUser?.id ?? ""),
-        },
-        body: JSON.stringify({
-          items: shoppingList?.items ?? [],
-          extraItems,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al enviar");
-      }
-      alert("Email enviado con la lista de la compra");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error";
-      alert(msg);
+  const sendShoppingByEmail = () => {
+    if (!shoppingList || isLoading || isError) {
+      alert("Espera a que la lista de la compra se cargue correctamente antes de enviarla.");
+      return;
     }
+    sendEmail({ kind: "shopping", payload: { items: shoppingList.items, extraItems } });
   };
-
-  if (!latestMenu) {
-    return (
-      <div className="text-center py-20">
-        <h2 className="text-2xl font-display font-bold">Primero necesitas un menú</h2>
-        <Button onClick={() => setLocation("/menu")} className="mt-4 rounded-xl">Ir a Menú Semanal</Button>
-      </div>
-    );
-  }
 
   const apiItems = shoppingList?.items ?? [];
   const totalCount = apiItems.length + extraItems.length;
@@ -85,12 +62,14 @@ export default function ShoppingPage() {
         <div className="flex flex-wrap gap-3">
           <Button
             onClick={sendShoppingByEmail}
+            type="button"
+            disabled={emailBusy || isLoading || isError || !shoppingList || (shoppingList.items.length === 0 && extraItems.length === 0)}
             variant="outline"
             className="rounded-xl px-6 gap-2"
             size="lg"
           >
             <Mail className="w-5 h-5" />
-            Enviar por email
+            {emailBusy ? "Procesando email…" : "Enviar por email"}
           </Button>
           <Button
             onClick={() => setLocation("/mercadona")}
@@ -111,6 +90,10 @@ export default function ShoppingPage() {
         </div>
       </div>
 
+      <WhatsAppSettings />
+      {!latestMenu && <p className="text-sm text-muted-foreground">Puedes añadir productos desde WhatsApp sin generar un menú.</p>}
+      {(isError || whatsapp.isError) && <p role="alert" className="text-destructive">No se pudo actualizar la lista. Comprueba la conexión y vuelve a intentarlo.</p>}
+      {whatsapp.remove.isError && <p role="alert" className="text-destructive">{whatsapp.remove.error.message}</p>}
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-card rounded-xl animate-pulse" />)}
@@ -162,6 +145,18 @@ export default function ShoppingPage() {
                         </span>
                       ))}
                     </div>
+                    {whatsapp.data?.filter(extra =>
+                      extra.ingredient.normalize("NFC").trim().toLocaleLowerCase("es").replace(/\s+/g, " ") === item.ingredient.normalize("NFC").trim().toLocaleLowerCase("es").replace(/\s+/g, " ")
+                    ).map(extra => (
+                      <button key={extra.id} type="button"
+                        aria-label={`Quitar ${extra.ingredient} de WhatsApp`}
+                        title="Quitar el añadido de WhatsApp; si lo necesita una receta, seguirá en la lista"
+                        disabled={whatsapp.remove.isPending}
+                        onClick={event => { event.stopPropagation(); whatsapp.remove.mutate(extra.id); }}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-destructive disabled:opacity-40">
+                        <X className="w-4 h-4" />
+                      </button>
+                    ))}
                   </div>
                 </div>
               );
@@ -223,7 +218,7 @@ export default function ShoppingPage() {
           </div>
 
           {/* Add manual ingredient */}
-          <div className="mt-6 pt-5 border-t border-border/50">
+          {latestMenu && <div className="mt-6 pt-5 border-t border-border/50">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Añadir ingrediente</p>
             <div className="flex gap-2">
               <input
@@ -244,7 +239,7 @@ export default function ShoppingPage() {
                 Añadir
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ import { useMenus, useGenerateMenu } from "@/hooks/use-menus";
 import { useRecipes } from "@/hooks/use-recipes";
 import { useGenerateShoppingList } from "@/hooks/use-shopping";
 import { useUser } from "@/contexts/UserContext";
+import { useEmail } from "@/contexts/EmailContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,6 +97,7 @@ export default function MenuPage() {
   const [, setLocation] = useLocation();
   const generateMenu = useGenerateMenu();
   const { currentUser } = useUser();
+  const { send: sendEmail, busy: emailBusy } = useEmail();
   const [isEditing, setIsEditing] = useState(false);
   const [localDays, setLocalDays] = useState<DayPlan[] | null>(null);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
@@ -147,27 +149,12 @@ export default function MenuPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  const sendMenuByEmail = async () => {
-    if (!latestMenu || !displayDays) return;
-    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-    try {
-      const res = await fetch(`${API_URL}/api/email/menu`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": String(currentUser?.id ?? ""),
-        },
-        body: JSON.stringify({ days: displayDays }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al enviar");
-      }
-      toast({ title: "Email enviado", description: "Revisa tu bandeja de entrada." });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error";
-      toast({ title: msg, variant: "destructive" });
+  const sendMenuByEmail = () => {
+    if (!latestMenu || !displayDays?.length) {
+      toast({ title: "No hay un menú disponible para enviar", variant: "destructive" });
+      return;
     }
+    sendEmail({ kind: "menu", payload: { days: displayDays } });
   };
 
   const handleSaveMenu = async () => {
@@ -227,26 +214,8 @@ export default function MenuPage() {
     toast({ title: "Menú eliminado" });
   };
 
-  const sendSavedMenuByEmail = async (menu: SavedMenu) => {
-    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-    try {
-      const res = await fetch(`${API_URL}/api/email/menu`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": String(currentUser?.id ?? ""),
-        },
-        body: JSON.stringify({ days: menu.days, subject: `Menú: ${menu.label}` }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al enviar");
-      }
-      toast({ title: "Email enviado", description: `"${menu.label}" enviado.` });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error";
-      toast({ title: msg, variant: "destructive" });
-    }
+  const sendSavedMenuByEmail = (menu: SavedMenu) => {
+    sendEmail({ kind: "menu", payload: { days: menu.days, subject: `Menú: ${menu.label}` } });
   };
 
   const downloadSavedMenuPdf = async (menu: SavedMenu) => {
@@ -488,9 +457,11 @@ export default function MenuPage() {
                   variant="outline"
                   className="rounded-xl px-4 border-border/60 gap-2"
                   onClick={sendMenuByEmail}
+                  type="button"
+                  disabled={emailBusy || !displayDays?.length}
                 >
                   <Mail className="w-4 h-4" />
-                  Enviar por email
+                  {emailBusy ? "Procesando email…" : "Enviar por email"}
                 </Button>
                 <Button
                   variant="outline"
@@ -827,6 +798,8 @@ export default function MenuPage() {
                     size="sm"
                     className="rounded-lg gap-1.5 border-border/60"
                     onClick={() => sendSavedMenuByEmail(sm)}
+                    type="button"
+                    disabled={emailBusy}
                   >
                     <Mail className="w-3.5 h-3.5" />
                     Enviar

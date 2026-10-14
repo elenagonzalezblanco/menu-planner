@@ -6,6 +6,7 @@ import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import whatsappWebhook from "./routes/whatsapp-webhook";
 
 const app: Express = express();
 
@@ -49,6 +50,8 @@ app.use(cors({
   credentials: true,
 }));
 
+// Meta signs the exact bytes; mount before the JSON parser.
+app.use("/api/whatsapp", whatsappWebhook);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

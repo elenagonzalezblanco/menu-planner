@@ -9,10 +9,107 @@ A full-stack web application for weekly meal planning powered by a conversationa
 - **Conversational Menu Editing** — Refine and modify menus incrementally through a chat interface with full context awareness. The AI assistant only changes what you ask for.
 - **Drag & Drop** — Visually rearrange meals across days and slots.
 - **Shopping List** — Auto-consolidated ingredient list generated from the active menu, grouped by normalized ingredient with recipe attribution.
+- **WhatsApp Shopping** — Link a phone and send text commands to add ingredients to the same shopping list, with durable processing and WhatsApp confirmations (requires Meta WhatsApp Business Cloud API configuration).
 - **Supermarket Search** — Open every shopping-list ingredient directly in Mercadona or Carrefour. The backend also retains Mercadona cart automation support.
 - **PDF Export** — Export menus as A4 landscape table-format PDFs using a custom pure-Node generator (no external dependencies).
 - **Email** — Send menus via Azure Communication Services with PDF attachments. Includes welcome emails on registration.
 - **Multi-User** — Per-user recipes, menus, AI settings, and credentials. Password authentication with email-based reset tokens.
+
+## WhatsApp → shopping list
+
+WhatsApp adds ingredients **to the existing shopping list**, not to Mercadona's
+cart. This first version accepts explicit Spanish text commands, not an
+unrestricted AI conversation or voice notes:
+
+- `añade leche, huevos y pan`
+- `añade a la lista de la compra 2 kg de tomates`
+- `lista: leche; aceite; arroz`
+- `ayuda` (or an unsupported message) returns usage instructions without changes.
+
+Use commas, semicolons, newlines or ` y ` to separate ingredients. Quantities
+remain part of the ingredient text; they are not converted or summed. Limit:
+20 ingredients, 120 characters each, 2,000 characters per message. A comma between
+digits is preserved as a decimal separator.
+
+### Activation
+
+1. Configure a Meta developer app with WhatsApp Business Cloud API and a business
+   phone number. During testing, authorize the recipient number in Meta.
+2. Set these **server-only** environment variables using your hosting platform's
+   secret settings (never `VITE_*`, Git, or browser storage):
+
+   | Variable | Value |
+   |----------|-------|
+   | `WHATSAPP_APP_SECRET` | Meta app secret used to verify webhook signatures |
+   | `WHATSAPP_VERIFY_TOKEN` | A random secret chosen by you for webhook verification |
+   | `WHATSAPP_ACCESS_TOKEN` | Meta token with `whatsapp_business_messaging` permission |
+   | `WHATSAPP_PHONE_NUMBER_ID` | Meta phone-number ID, not the visible phone number |
+   | `WHATSAPP_BUSINESS_NUMBER` | Business number with country code, digits only |
+   | `WHATSAPP_GRAPH_VERSION` | Supported version enabled for your Meta app, e.g. `v23.0` |
+
+3. Deploy the backend to a public HTTPS URL. Set Meta's callback URL to
+   `https://YOUR_API_HOST/api/whatsapp/webhook`, enter the same verification token,
+   and subscribe to the WhatsApp **messages** webhook field.
+4. In **Lista de Compra → Añadir desde WhatsApp**, enter your account password,
+   generate a code, open WhatsApp and **send** the prepared `vincular ...` message.
+   The one-use code expires after 10 minutes. Never share it.
+5. After receiving the linking confirmation, send `añade leche y huevos`.
+   The ingredients appear alongside recipe ingredients, labelled **WhatsApp**.
+   The open shopping page refreshes every 10 seconds.
+
+The panel explicitly shows pending activation if configuration is missing.
+Credentials and a real Meta number are not provisioned by this code change.
+No message or credential is sent to Meta during automated tests.
+
+### Persistence and behavior
+
+- Tables are initialized idempotently at API startup: `whatsapp_links`,
+  `whatsapp_ingredients`, `whatsapp_messages`.
+- Ingredients belong to the linked user, not to a particular menu. They survive
+  menu regeneration and remain until removed with the item's **X** button.
+  They also work before the user has created a menu.
+- Existing shopping GET/generate responses merge these ingredients with recipes.
+  Identical normalized names appear once with both recipe and WhatsApp attribution.
+  Removing a WhatsApp addition does not remove an ingredient still needed by a recipe.
+  Existing manual extras in browser storage are unchanged.
+- Shopping email snapshots and Mercadona **search links** receive the same merged
+  list. WhatsApp never changes a Mercadona cart or submits an order.
+- One phone can link to one account. Link/unlink requires the account password in
+  addition to the app's existing `X-User-Id` identification; link attempts are limited
+  per user per server process. Unlinking revokes future phone writes but does not
+  remove already-added ingredients.
+- POST webhooks require an HMAC-SHA256 signature over the raw body and the configured
+  receiving phone-number ID. A 200 response is sent only after durable insertion;
+  database outages return 503 so Meta can retry. Status callbacks are ignored.
+- Incoming message IDs are unique. Ingredient writes and their acknowledgement are
+  committed in one transaction. Repeated webhooks, concurrent workers, restarts and
+  reply retries do not repeat a completed ingredient write.
+- Reply delivery retries up to five processing attempts, within 23 hours of receipt.
+  A timeout after Meta accepts a reply can repeat the **confirmation**, never the
+  ingredients. Exhausted jobs remain in `failed`; operators can inspect queue state
+  in PostgreSQL. Actual end-user delivery/read receipts are not tracked.
+- Successful command processing clears the stored incoming text. Phone numbers and
+  replies remain in the queue: restrict database access and define a retention policy
+  appropriate to your deployment. Keep message-ID tombstones when purging sensitive
+  content so historical webhook retries cannot repeat actions.
+
+### API and tests
+
+Account endpoints use `X-User-Id`:
+
+| Method | Path | Contract |
+|--------|------|----------|
+| GET | `/api/whatsapp/status` | `{ configured, phone: maskedPhoneOrNull, chatUrl }` |
+| POST | `/api/whatsapp/link` | `{ password }` → `{ code, url, expiresInSeconds: 600 }` |
+| POST | `/api/whatsapp/unlink` | `{ password }` → `{ success: true }` |
+| GET | `/api/whatsapp/ingredients` | `[{ id, ingredient }]` for the current user |
+| DELETE | `/api/whatsapp/ingredients/:id` | Remove own addition; 204 or 404 |
+| GET | `/api/shopping-list/0` | WhatsApp ingredients without a menu, same shopping response shape |
+
+Run `pnpm --filter @workspace/api-server test:whatsapp` for unit tests.
+To include HTTP/PostgreSQL integration tests, set `WHATSAPP_TEST_DATABASE_URL` to
+an **isolated local database named `whatsapp_test`**. Integration tests erase the
+test tables and never use the application's ordinary `DATABASE_URL`.
 
 ## GitHub Pages API configuration
 
@@ -304,6 +401,110 @@ The project uses a multi-stage Docker build:
 4. **runtime** — Node 20-slim, serves on port 3000
 
 Deployed on Render.com (Docker + PostgreSQL) and Azure (App Service / Container Apps).
+
+## Reliable email delivery
+
+Menu and shopping emails use a **PostgreSQL outbox**, not an in-memory request or queue.
+`ACS_CONNECTION_STRING` must configure Azure Communication Services Email, with the
+sender domain/address authorized in ACS. Credentials remain server-side.
+
+### Browser behavior
+
+All three send actions (active menu, saved menu and shopping list) first save a
+user-scoped local snapshot with a UUID. Offline requests survive reloads and retry
+every 15 seconds while the app is open, reusing the same UUID even if the previous
+server response was lost. Once the server acknowledges the durable job, the local
+snapshot is removed. Storage errors and server rejections remain visible.
+The shared email panel shows pending requests, failures with retry buttons, the
+recipient and the provider-accepted state. Loading/failed shopping lists cannot
+be emailed; manual extra ingredients are included in the snapshot.
+
+### API contract
+
+All endpoints retain the existing `X-User-Id` identification:
+
+- `POST /api/email/menu` — existing `{ days, subject? }` body, including extra dish slots.
+- `POST /api/email/shopping` — existing `{ items, extraItems? }` body.
+- Both POSTs require an **`Idempotency-Key` UUID** generated once per intended send.
+  After the snapshot commits, they return **202**:
+  `{ "id": "...", "status": "queued|sending|succeeded|failed", "recipient": "...", "error": null }`.
+  Reuse that key and the identical payload after network errors/reloads. Repeated requests
+  return the original job (including its current status); changed content or endpoint
+  with the same user/key returns **409**. A later profile change does not alter an existing recipient.
+- `GET /api/email/deliveries` returns up to 20 statuses for this user: queued/sending
+  jobs first, then failures, then successes; newest first within each group. New
+  successes therefore do not push older unresolved deliveries out of the visible list.
+- `GET /api/email/deliveries/:id` returns one status; another user's ID returns **404**.
+- `POST /api/email/deliveries/:id/retry` requeues a failed delivery's **same stored snapshot**
+  and returns **202** with the same job ID. Nonfailed jobs return **409**.
+
+**Legacy safety:** requests without `Idempotency-Key` return **428** with an actionable
+update message, without enqueueing or sending. They never receive premature `ok:true`.
+Old clients must refresh/update; this deliberately avoids silent duplicate sends from
+clients that cannot persist an idempotency key. Malformed payloads/UUIDs return **400**;
+unavailable/uninitialized persistence returns **503**, never a successful enqueue response.
+`succeeded` means ACS confirmed the send operation succeeded, not guaranteed inbox placement.
+
+### Durability and recovery
+
+The immutable snapshot stores the sender, recipient, subject, escaped HTML and attachment
+bytes (including the menu PDF); shopping extras and additional menu dishes are retained.
+Neither background retries nor manual retries rebuild content from mutable menus/profiles.
+Outbox initialization runs after base migrations, including the existing-database path,
+before starting the worker. Initialization failures are logged and retried with
+exponential backoff capped at 60 seconds; email routes remain unavailable until
+persistence is ready. Seeding failures do not stop or duplicate the email worker.
+Queued and expired-lease jobs automatically resume when the API restarts.
+On hosting tiers that sleep, processing pauses while the app is asleep and resumes
+on wake/startup. Closing the browser does not lose committed jobs, but does not
+guarantee immediate background delivery on a sleeping host.
+
+Replicas claim jobs atomically with `FOR UPDATE SKIP LOCKED`, a 90-second lease and
+lease-token-fenced writes. Outbox database queries have a 15-second client timeout.
+Each provider step has a 20-second abort/deadline and SDK
+HTTP retries are disabled. Pending operations are polled every 10 seconds; transient
+errors back off exponentially from 2 seconds to 5 minutes. Jobs stop after 30 claimed
+attempts (including crash recovery) and expose a sanitized, actionable failed state.
+Missing/invalid ACS configuration fails immediately on processing. Logs identify jobs
+and provider operation IDs, not message bodies, recipient addresses, credentials or raw ACS errors.
+
+The provider operation UUID **and a polling-only checkpoint are persisted before any
+ACS I/O**. The installed `@azure/communication-email` **1.1.0** calls POST and an initial
+GET inside `beginSend`; `@azure/core-lro` **2.7.2** uses `{state:{status,config}}` serialized
+checkpoints. SDK-level fake-transport tests verify `operationId`, `resumeFrom` and this
+pre-I/O checkpoint format. Keep these tests passing when upgrading either package.
+
+After a timeout, process crash, 5xx, 409 or unknown result, recovery only polls the
+**same provider operation**, preserving serialized state. Even manual retry does not
+issue a fresh POST for an ambiguous delivery. An explicit POST 429 can be retried with
+the same operation UUID. A confirmed terminal ACS failure (or explicit nontransient
+POST rejection) allows manual retry to create a **new provider UUID**, while retaining
+the job ID and original snapshot.
+
+This intentionally prefers avoiding duplicates over blindly resending: a crash after
+the database checkpoint but before the initial POST may leave an operation that never
+existed. A lost/expired provider operation (including 404) eventually becomes failed;
+retry continues checking that same operation and never silently creates another email.
+Check the recipient mailbox/provider logs before deliberately starting a new send with
+a new key. There is no exactly-once inbox-delivery guarantee across PostgreSQL and ACS.
+Outbox records contain personal email content and are retained; restrict DB access and
+apply an appropriate retention policy. Removing a record also removes its deduplication history.
+
+### Focused verification (no real emails)
+
+```sh
+pnpm --filter @workspace/api-server run test:email
+# Optional integration coverage against an explicitly chosen LOCAL PostgreSQL:
+EMAIL_TEST_DATABASE_URL=postgresql://localhost/postgres pnpm --filter @workspace/api-server run test:email
+pnpm --filter @workspace/api-server run typecheck
+pnpm --filter @workspace/api-server run build
+pnpm --filter @workspace/menu-semanal exec tsx --test src/lib/email-outbox.test.ts
+```
+
+The integration test uses an isolated, uniquely named schema and removes it afterward.
+Bootstrap tests cover temporary database outages and shutdown during initialization.
+It never automatically uses the application's `DATABASE_URL`. All ACS tests replace
+the HTTP transport; they send no email.
 
 ## License
 

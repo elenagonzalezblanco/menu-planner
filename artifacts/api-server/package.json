@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx watch --env-file=../../.env ./src/index.ts",
     "build": "tsx ./build.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:email": "tsx --test src/lib/email-*.test.ts",
+    "test:whatsapp": "tsx --test src/lib/whatsapp*.test.ts"
   },
   "dependencies": {
     "@azure/communication-email": "^1.1.0",

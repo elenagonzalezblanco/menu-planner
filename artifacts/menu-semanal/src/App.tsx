@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 import { UserProvider, useUser } from "@/contexts/UserContext";
+import { EmailProvider } from "@/contexts/EmailContext";
 
 const UserSelector = lazy(() => import("@/components/UserSelector").then(m => ({ default: m.UserSelector })));
 
@@ -106,7 +107,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <UserProvider>
-          <AppShell />
+          <EmailProvider>
+            <AppShell />
+          </EmailProvider>
           <Toaster />
         </UserProvider>
       </TooltipProvider>

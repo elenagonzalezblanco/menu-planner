@@ -5,6 +5,7 @@ import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useUser } from "@/contexts/UserContext";
+import { EmailStatus } from "@/components/EmailStatus";
 
 const UserSelector = lazy(() => import("@/components/UserSelector").then(m => ({ default: m.UserSelector })));
 
@@ -169,6 +170,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 p-4 md:p-8 lg:p-10 mx-auto w-full max-w-7xl overflow-x-hidden">
+          <EmailStatus />
           {children}
         </main>
       </div>

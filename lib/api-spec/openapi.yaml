@@ -203,6 +203,7 @@ paths:
       operationId: getShoppingList
       tags: [shopping]
       summary: Obtener lista de la compra para un menú
+      description: Incluye los ingredientes persistentes de WhatsApp del usuario, combinando nombres coincidentes con las recetas. menuId 0 devuelve solo esos ingredientes, sin requerir un menú.
       parameters:
         - name: menuId
           in: path
@@ -236,7 +237,186 @@ paths:
               schema:
                 $ref: "#/components/schemas/MercadonaSearchResult"
 
+  /whatsapp/status:
+    get:
+      operationId: getWhatsAppStatus
+      summary: Estado de WhatsApp y teléfono vinculado (enmascarado)
+      parameters:
+        - $ref: "#/components/parameters/WhatsAppUserId"
+      responses:
+        "200":
+          description: Configuración y vinculación actuales
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured, phone, chatUrl]
+                properties:
+                  configured:
+                    type: boolean
+                  phone:
+                    type: [string, "null"]
+                  chatUrl:
+                    type: [string, "null"]
+        "503":
+          description: Base de datos inicializándose
+
+  /whatsapp/link:
+    post:
+      operationId: createWhatsAppLink
+      summary: Generar un código de vinculación de un solo uso
+      parameters:
+        - $ref: "#/components/parameters/WhatsAppUserId"
+      requestBody:
+        $ref: "#/components/requestBodies/WhatsAppPassword"
+      responses:
+        "200":
+          description: Código válido durante 600 segundos; enviar por WhatsApp al número del negocio
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, url, expiresInSeconds]
+                properties:
+                  code:
+                    type: string
+                  url:
+                    type: string
+                  expiresInSeconds:
+                    type: integer
+        "401":
+          description: Contraseña incorrecta
+        "429":
+          description: Demasiados intentos
+        "503":
+          description: WhatsApp no está configurado o se está inicializando
+
+  /whatsapp/unlink:
+    post:
+      operationId: unlinkWhatsApp
+      summary: Revocar la vinculación sin eliminar ingredientes
+      parameters:
+        - $ref: "#/components/parameters/WhatsAppUserId"
+      requestBody:
+        $ref: "#/components/requestBodies/WhatsAppPassword"
+      responses:
+        "200":
+          description: Teléfono desvinculado
+        "401":
+          description: Contraseña incorrecta
+        "429":
+          description: Demasiados intentos
+
+  /whatsapp/ingredients:
+    get:
+      operationId: listWhatsAppIngredients
+      summary: Ingredientes persistentes de WhatsApp del usuario
+      parameters:
+        - $ref: "#/components/parameters/WhatsAppUserId"
+      responses:
+        "200":
+          description: Ingredientes añadidos por WhatsApp
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, ingredient]
+                  properties:
+                    id:
+                      type: integer
+                    ingredient:
+                      type: string
+
+  /whatsapp/ingredients/{id}:
+    delete:
+      operationId: deleteWhatsAppIngredient
+      summary: Eliminar una aportación de WhatsApp sin cambiar recetas
+      parameters:
+        - $ref: "#/components/parameters/WhatsAppUserId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Eliminado
+        "404":
+          description: Ingrediente inexistente o perteneciente a otro usuario
+
+  /whatsapp/webhook:
+    get:
+      operationId: verifyWhatsAppWebhook
+      summary: Verificación del callback de Meta
+      parameters:
+        - name: hub.mode
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: hub.verify_token
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: hub.challenge
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Challenge de Meta como texto plano
+        "403":
+          description: Verificación inválida
+        "503":
+          description: WhatsApp no configurado
+    post:
+      operationId: receiveWhatsAppWebhook
+      summary: Recibir mensajes de Meta y persistirlos antes de confirmar recepción
+      parameters:
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Mensajes persistidos o notificación sin mensajes
+        "403":
+          description: Firma inválida
+        "503":
+          description: Almacenamiento no disponible o WhatsApp sin configurar
+
 components:
+  parameters:
+    WhatsAppUserId:
+      name: X-User-Id
+      in: header
+      required: true
+      schema:
+        type: integer
+  requestBodies:
+    WhatsAppPassword:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [password]
+            properties:
+              password:
+                type: string
+                maxLength: 1024
   schemas:
     HealthStatus:
       type: object

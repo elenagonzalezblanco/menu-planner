@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Política de privacidad de La Cocina</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("scoutTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px 16px;
+      background: var(--cp-bg);
+      color: var(--cp-text);
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.65;
+    }
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: clamp(20px, 5vw, 48px);
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      background: var(--cp-surface);
+    }
+    h1 { line-height: 1.2; font-size: clamp(1.75rem, 5vw, 2.5rem); }
+    h2 { margin-top: 32px; font-size: 1.25rem; }
+    a { color: var(--cp-link); overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 4px; }
+    .date { color: var(--cp-text-muted); }
+    @media print {
+      body { padding: 0; }
+      main { max-width: none; border: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Política de privacidad de La Cocina</h1>
+    <p class="date"><strong>Actualizada el 19 de septiembre de 2026</strong></p>
+
+    <h2>Responsable y contacto</h2>
+    <p>Elena González-Blanco García es la responsable del tratamiento de los datos personales de La Cocina — Los Menús de Elena. Puedes contactar en <a href="mailto:elenagbg@gmail.com">elenagbg@gmail.com</a> para consultas de privacidad y solicitudes de ejercicio de derechos.</p>
+
+    <h2>Datos y finalidades</h2>
+    <p>La aplicación trata los datos de cuenta que facilitas, tus recetas, menús, preferencias y listas de compra para prestarte sus funciones. Utiliza almacenamiento local del navegador para mantener información de la sesión y determinadas operaciones pendientes.</p>
+    <p>Si utilizas la integración con WhatsApp, también trata tu número de teléfono, el texto de los mensajes enviados al servicio, sus identificadores, fechas, estados de procesamiento y respuestas. Estos datos permiten vincular tu teléfono con tu cuenta, añadir ingredientes, responder a tus solicitudes y evitar duplicados.</p>
+    <p>La integración procesa instrucciones de texto. No necesita acceder a tu agenda ni al resto de tus conversaciones de WhatsApp. No envíes datos de salud u otra información sensible.</p>
+
+    <h2>Base jurídica</h2>
+    <p>Los datos necesarios para gestionar la cuenta y atender las funciones que solicitas se tratan para prestar el servicio. Los controles de seguridad y prevención de duplicados responden al interés legítimo de mantener su funcionamiento y proteger las cuentas. La vinculación con WhatsApp es opcional.</p>
+
+    <h2>Proveedores y comunicaciones</h2>
+    <p>La aplicación utiliza servicios de Microsoft Azure para su infraestructura. WhatsApp Business Platform, de Meta, interviene en la recepción y envío de mensajes y aplica sus propias condiciones y política de privacidad.</p>
+    <p>Cuando solicitas generación de menús con inteligencia artificial, se procesa la información necesaria para esa función mediante el servicio de IA configurado. Cuando solicitas un envío por correo, se procesa su contenido y destinatario mediante el proveedor de correo. Los servicios externos que abras, como Mercadona, tienen sus propias políticas.</p>
+    <p>El tratamiento por proveedores puede implicar operaciones fuera del Espacio Económico Europeo. Cuando corresponda, deben aplicarse las garantías exigidas por la normativa de protección de datos.</p>
+
+    <h2>Conservación y desvinculación</h2>
+    <p>Los ingredientes añadidos por WhatsApp permanecen en tu lista hasta que los elimines. Desvincular tu teléfono impide nuevas incorporaciones desde ese número, pero no borra los ingredientes anteriores.</p>
+    <p>El texto entrante se vacía del registro de procesamiento cuando la instrucción se procesa correctamente. Pueden permanecer el número, identificadores, respuestas y estados técnicos; las respuestas pueden contener ingredientes. Los mensajes cuyo procesamiento no se completa pueden conservar su texto. Actualmente estos registros no tienen una caducidad automática general.</p>
+    <p>Puedes solicitar la eliminación de tus datos por correo. La eliminación podrá estar limitada por obligaciones legales o por la necesidad justificada de conservar determinados datos para atender reclamaciones.</p>
+
+    <h2 id="eliminacion">Derechos y eliminación de datos</h2>
+    <p>Puedes solicitar acceso, rectificación, supresión, oposición, limitación y portabilidad, cuando procedan, escribiendo a <a href="mailto:elenagbg@gmail.com">elenagbg@gmail.com</a>, con el asunto <strong>«Privacidad La Cocina»</strong> o <strong>«Eliminar mis datos»</strong>.</p>
+    <p>Indica el correo de tu cuenta y, si procede, el teléfono vinculado. No envíes contraseñas ni códigos de acceso. Podrá solicitarse información proporcionada para comprobar tu identidad. Las solicitudes se atenderán en los plazos legales aplicables, normalmente un mes, con las prórrogas previstas en la normativa.</p>
+    <p>También puedes presentar una reclamación ante la Agencia Española de Protección de Datos: <a href="https://www.aepd.es/">https://www.aepd.es/</a>.</p>
+
+    <h2>Cambios</h2>
+    <p>Las modificaciones de esta política se publicarán en esta página con su fecha de actualización.</p>
+  </main>
+</body>
+</html>

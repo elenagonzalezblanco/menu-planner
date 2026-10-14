@@ -10,6 +10,7 @@ import emailRouter from "./email";
 import aiChatRouter from "./ai-chat";
 import savedMenusRouter from "./saved-menus";
 import { requireUser } from "../middlewares/auth";
+import whatsappRouter from "./whatsapp";
 
 const router: IRouter = Router();
 
@@ -20,6 +21,7 @@ router.use(publicRouter);
 
 // Protected routes (require X-User-Id header)
 router.use(requireUser as any);
+router.use(whatsappRouter);
 router.use(recipesRouter);
 router.use(menusRouter);
 router.use(shoppingRouter);

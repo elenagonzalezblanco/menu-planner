@@ -493,6 +493,8 @@
   // ── Watching: fills the cart when «Rellena la cesta automática» is pressed in the app ──
 
   const WATCH_INTERVAL_MS = 15000;
+  /** Reloading lets Mercadona refresh its session; the watching tab re-injects the connector on load. */
+  const WATCH_RELOAD_MS = 6 * 60 * 60 * 1000;
 
   function requestSummary(outcome) {
     const inCart = [...outcome.added.map(item => item.quantity), ...outcome.kept.map(item => item.inCart)];
@@ -525,11 +527,16 @@
   function watch() {
     if (window.__micocinaWatching) return;
     window.__micocinaWatching = true;
+    const loadedAt = Date.now();
     const tick = async () => {
       try {
         if (!window.__micocinaConnectorBusy) {
           const { request } = await micocina("/requests/claim", { method: "POST", body: "{}" });
           if (request) await fulfil(request);
+          else if (Date.now() - loadedAt > WATCH_RELOAD_MS) {
+            location.reload();
+            return;
+          }
         }
       } catch {
         // Network blips or an expired session: try again on the next tick.

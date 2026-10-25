@@ -546,7 +546,8 @@
     tick();
   }
 
-  window.__micocinaConnector = { run, watch, version: 2 };
+  // fulfil(request) is used by the Mac helper, which claims requests itself and opens Mercadona on demand.
+  window.__micocinaConnector = { run, watch, fulfil, version: 3 };
   if (config.mode === "watch") watch();
   else if (config.autorun !== "false") run().catch(() => {});
 })();

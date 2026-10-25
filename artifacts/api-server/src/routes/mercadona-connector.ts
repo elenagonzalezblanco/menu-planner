@@ -2,7 +2,7 @@ import { Router, type IRouter, type NextFunction, type Request, type Response } 
 import { createHash, timingSafeEqual } from "node:crypto";
 import { pool } from "@workspace/db";
 import type { AuthenticatedRequest } from "../middlewares/auth";
-import { computeCartPlan, MenuNotFoundError, parseExtraIngredients } from "../lib/mercadona-cart";
+import { computeCartPlan, MenuNotFoundError } from "../lib/mercadona-cart";
 import {
   connectorStatus, createConnectorToken, deleteHistory, parsePlanResult, parseUploadedOrders, recordPlanResult,
   revokeConnectorTokens, storeOrders, syncedOrderIds, userForConnectorToken,
@@ -45,7 +45,7 @@ connectorRouter.post("/plan", async (req: ConnectorRequest, res) => {
   const menuId = req.body?.menuId === undefined || req.body?.menuId === null ? undefined : Number(req.body.menuId);
   if (menuId !== undefined && (!Number.isSafeInteger(menuId) || menuId <= 0)) return res.status(400).json({ error: "Menú no válido." });
   try {
-    const plan = await computeCartPlan(req.connectorUser!.id, { menuId, extraIngredients: parseExtraIngredients(req.body?.extraIngredients) });
+    const plan = await computeCartPlan(req.connectorUser!.id, { menuId });
     return res.json(plan);
   } catch (error) {
     if (error instanceof MenuNotFoundError) return res.status(404).json({ error: "No se encontró el menú." });

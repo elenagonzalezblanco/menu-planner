@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildCartPlan, matchIngredientToProduct, pairMenusWithOrders, searchQueryFor, tokenize, tokensMatch, usualQuantity,
-  type MenuSnapshot, type PurchaseOrder, type RecipeInfo,
+  buildCartPlan, matchIngredientToProduct, pairMenusWithOrders, quantityForDishes, searchQueryFor, tokenize, tokensMatch,
+  usualQuantity, type MenuSnapshot, type PurchaseOrder, type RecipeInfo,
 } from "./mercadona-planner";
 
 const recipes: RecipeInfo[] = [
@@ -54,8 +54,22 @@ test("Spanish plurals, accents and container words do not break matching", () =>
   assert.deepEqual(tokenize("Bolsa ensaladilla"), ["ensaladilla"]);
   assert.deepEqual(tokenize("200 g de Champiñones frescos"), ["champinones"]);
   assert.equal(searchQueryFor("200 g de champiñones (opcional)"), "champiñones");
+  assert.equal(searchQueryFor("Hueso de jamón para el caldo"), "Hueso jamón caldo");
   assert.equal(matchIngredientToProduct(["aceite"], tokenize("Atún claro en aceite de oliva"))?.headPosition, 2);
   assert.equal(matchIngredientToProduct(["tomates"], tokenize("Rama de Tomates"))?.full, true);
+});
+
+test("quantity follows the dishes of the week, from what she bought per dish", () => {
+  // Six fillets for one dish: two dishes need twelve.
+  assert.equal(quantityForDishes([{ uses: 1, quantity: 6 }, { uses: 1, quantity: 6 }], 2, []), 12);
+  // One bottle of oil covers several dishes.
+  assert.equal(quantityForDishes([{ uses: 4, quantity: 1 }, { uses: 3, quantity: 1 }], 3, []), 1);
+  // Never more than twice her largest purchase.
+  assert.equal(quantityForDishes([{ uses: 1, quantity: 2 }], 5, []), 4);
+  // Weight steps stay valid: 0.4 kg per dish, twice.
+  assert.equal(quantityForDishes([{ uses: 1, quantity: 0.4 }], 2, []), 0.8);
+  // No history with the dish: her usual purchase of that product.
+  assert.equal(quantityForDishes([], 2, [3, 3, 1]), 3);
 });
 
 test("usual quantity is the median, clamped to what was bought and at least one unit", () => {
@@ -81,41 +95,40 @@ test("each order is paired with the latest revision of the menu saved before it"
   assert.deepEqual(pairs.map(pair => [pair.order.orderId, pair.menu.recipeIds[0]]), [["1", 2]]);
 });
 
-test("builds the cart from the products and quantities bought when the ingredient was on the menu", () => {
+test("every ingredient of the menu goes to the cart with her usual product and quantity per dish", () => {
   const { pastMenus, orders } = history();
-  const plan = buildCartPlan({ menuRecipeIds: [1, 2, 3, 4, 5, 6], recipes, pastMenus, orders, extraIngredients: ["leche", "nutella"] });
+  // Pollo plancha twice this week.
+  const plan = buildCartPlan({ menuRecipeIds: [1, 1, 2, 3, 4, 5, 6], recipes, pastMenus, orders });
   const byName = new Map(plan.items.map(item => [item.productName ?? `?${item.searchQuery}`, item]));
 
   assert.equal(plan.stats.weeksPaired, 6);
-  assert.equal(byName.get("Pechugas enteras familiar de pollo")?.quantity, 2);
-  assert.equal(byName.get("Pechugas enteras familiar de pollo")?.confidence, "alta");
-  assert.match(byName.get("Pechugas enteras familiar de pollo")!.reason, /6 de 6 semanas/);
+  // Two chicken dishes: twice the two trays she buys per dish.
+  const chicken = byName.get("Pechugas enteras familiar de pollo")!;
+  assert.equal(chicken.quantity, 4);
+  assert.equal(chicken.confidence, "alta");
+  assert.match(chicken.reason, /^Para 2 platos \(Pollo plancha\)/);
   // "Aceite" is the oil, not tinned tuna in oil.
   assert.ok(byName.has("Aceite de oliva virgen extra Hacendado"));
   assert.ok(!byName.has("Atún claro en aceite de oliva Hacendado"));
-  // Singular/plural ingredients ("Ajo" and "Ajos") and both merluza recipes collapse to one product.
+  // Singular/plural ingredients and both merluza recipes collapse to one product.
   assert.deepEqual(byName.get("Ajos morados")?.ingredients, ["Ajo", "Ajos"]);
   assert.deepEqual(byName.get("Rama de Tomates")?.ingredients, ["Tomates", "Tomate"]);
-  const merluza = byName.get("Porciones de merluza del Cabo");
-  assert.equal(merluza?.quantity, 3);
-  assert.deepEqual(merluza?.ingredients.sort(), ["Merluza abierta sin espinas", "Merluza en rodajas"]);
-  // Extras are matched by name against what she buys.
-  assert.equal(byName.get("Leche entera Hacendado")?.quantity, 6);
-  // Never bought: searched in the shop with a clean query.
+  const merluza = byName.get("Porciones de merluza del Cabo")!;
+  assert.deepEqual(merluza.ingredients.sort(), ["Merluza abierta sin espinas", "Merluza en rodajas"]);
+  assert.equal(merluza.quantity, 6);
+  // Nothing on the menu is left out: never bought means it is searched in the shop.
+  assert.equal(byName.get("?Perejil")?.source, "busqueda");
+  assert.equal(byName.get("?Pan")?.quantity, 1);
   assert.equal(byName.get("?Cogollos")?.source, "busqueda");
-  assert.equal(byName.get("?nutella")?.quantity, 1);
-  // Bought only once with the recipe on the menu is still added (little evidence).
+  // Bought once, never with this dish: still added, with low confidence.
   assert.equal(byName.get("Filetes de anchoa en aceite de oliva Hacendado")?.confidence, "baja");
-
-  // Six weeks with parsley and bread on the menu and never bought: assumed to be at home.
-  const skipped = new Map(plan.skipped.map(item => [item.ingredients[0], item]));
-  assert.match(skipped.get("Perejil")!.reason, /no compraste nada parecido/);
-  assert.ok(skipped.has("Pan"));
+  // Only menu ingredients: milk is bought every week but no dish needs it.
+  assert.ok(!byName.has("Leche entera Hacendado"));
   assert.ok(plan.purchasedProductIds.includes("10"));
 });
 
-test("without history every ingredient is searched and nothing is skipped", () => {
+test("without history every ingredient is searched in the shop", () => {
   const plan = buildCartPlan({ menuRecipeIds: [6], recipes, pastMenus: [], orders: [] });
   assert.deepEqual(plan.items.map(item => item.searchQuery), ["Tomate", "Pepino", "Ajos"]);
-  assert.equal(plan.skipped.length, 0);
+  assert.ok(plan.items.every(item => item.source === "busqueda" && item.quantity === 1));
 });

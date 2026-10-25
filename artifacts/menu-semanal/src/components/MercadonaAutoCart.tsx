@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { useMenus } from "@/hooks/use-menus";
-import { useExtraIngredients } from "@/hooks/use-extra-ingredients";
 import {
   ConnectorAuthError, bookmarkletFor, createConnectorToken, readConnectorToken, storeConnectorToken,
   useCartPlan, useConnectorAction, useConnectorStatus, type CartPlan, type PlanConfidence,
@@ -50,8 +49,9 @@ function AutoCart({ userId }: { userId: number }) {
         <div>
           <h2 className="text-2xl font-display font-bold text-foreground">Cesta automática</h2>
           <p className="text-muted-foreground mt-1 text-sm max-w-2xl">
-            Calcula los productos y las cantidades a partir de tu menú y de lo que compraste en semanas con los mismos platos,
-            y los mete en tu carro de Mercadona. Nada se compra solo: tú revisas el carro y decides.
+            Mete en tu carro de Mercadona todos los ingredientes de todos los platos del menú que diseñas. Tus pedidos
+            anteriores solo deciden qué producto sueles coger para cada ingrediente y cuánto por plato.
+            Nada se compra solo: tú revisas el carro y decides.
           </p>
         </div>
       </div>
@@ -158,7 +158,6 @@ function ConnectedCart({ token, userId, status, onDisconnect }: {
 }) {
   const { data: menus = [] } = useMenus();
   const latestMenu = menus.length > 0 ? menus[0] : null;
-  const { items: extraItems } = useExtraIngredients(latestMenu?.id);
   const planMutation = useCartPlan(token);
   const action = useConnectorAction(token);
   const history = status.data?.history;
@@ -174,7 +173,7 @@ function ConnectedCart({ token, userId, status, onDisconnect }: {
         </li>
         <li className="rounded-2xl bg-card border border-border/60 p-4">
           <span className="font-semibold">2. Púlsalo en Mercadona</span>
-          <p className="text-muted-foreground mt-1">Con tu sesión iniciada en tienda.mercadona.es. Lee tus pedidos nuevos y llena el carro con el menú actual.</p>
+          <p className="text-muted-foreground mt-1">Con tu sesión iniciada en tienda.mercadona.es. Lee tus pedidos nuevos y llena el carro con tu menú semanal.</p>
         </li>
         <li className="rounded-2xl bg-card border border-border/60 p-4">
           <span className="font-semibold">3. Revisa el carro</span>
@@ -206,7 +205,7 @@ function ConnectedCart({ token, userId, status, onDisconnect }: {
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
-          onClick={() => planMutation.mutate({ menuId: latestMenu?.id, extraIngredients: extraItems })}
+          onClick={() => planMutation.mutate({ menuId: latestMenu?.id })}
           disabled={planMutation.isPending}
           className="rounded-xl bg-[#00823F] border-[#00823F] text-white"
         >
@@ -288,26 +287,13 @@ function PlanDetails({ plan }: { plan: CartPlan }) {
                         {item.confidence}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{item.ingredients.join(", ")} · {item.reason}</p>
+                    <p className="text-xs text-muted-foreground">{item.reason}</p>
                   </div>
                 </li>
               ))}
             </ul>
           </div>
         ))}
-        {plan.skipped.length > 0 && (
-          <div className="px-5 py-3 bg-muted/30">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">No se añaden (revisa si te faltan)</p>
-            <ul className="space-y-1.5 text-sm">
-              {plan.skipped.map(item => (
-                <li key={item.key}>
-                  <span className="font-medium">{item.ingredients.join(", ")}</span>
-                  <span className="text-muted-foreground"> — {item.reason}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );

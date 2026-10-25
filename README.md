@@ -24,15 +24,15 @@ bookmarks bar. With your session open on tienda.mercadona.es, click it:
 
 1. It reads the delivered orders Mi Cocina has not seen yet (last 12 months, at
    most 40 per run, a few seconds apart so Mercadona does not block the session).
-2. The server pairs every saved weekly menu (and the menu of every cart it
-   computed, since generating a new menu replaces the previous one) with the
-   order delivered up to five days later and, for each ingredient of the
-   current menu (plus WhatsApp and
-   manual additions), chooses the product you bought in those weeks and its
-   median quantity. Ingredients you never buy although they were on the menu
-   (≥ 3 weeks, bought < 30 %) are listed as "probably at home" instead.
-   Ingredients without history are searched in Mercadona's catalogue,
-   preferring products you have bought before.
+2. Every ingredient of every dish of your weekly menu goes to the cart. Your
+   history only decides the product and the amount: the server pairs every
+   saved weekly menu (and the menu of every cart it computed, since generating
+   a new menu replaces the previous one) with the order delivered up to five
+   days later, picks the product you bought for that ingredient and multiplies
+   what you bought per dish by this week's dishes (at most twice your largest
+   purchase). Ingredients you never bought are searched in Mercadona's
+   catalogue, preferring products you have bought before; ingredients you rarely
+   buy with those dishes are added with a "check if you already have it" note.
 3. Products are added to the Mercadona cart. Products already in the cart keep
    the larger quantity (nothing is summed twice); unavailable products are
    replaced by the closest available one. Nothing is ordered or paid: review the

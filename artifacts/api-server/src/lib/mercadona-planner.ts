@@ -1,8 +1,8 @@
 /**
- * Builds a Mercadona cart from the weekly menu using the user's own purchase
- * history: for every ingredient it learns which product she buys and how many
- * units, by pairing each past weekly menu with the order delivered right after
- * it. Pure and deterministic so it can be unit-tested without a database.
+ * Builds a Mercadona cart with every ingredient of the weekly menu. The user's
+ * own purchase history only decides which product she buys for each ingredient
+ * and how much per dish, learned by pairing each past weekly menu with the order
+ * delivered right after it. Pure and deterministic so it can be unit-tested.
  */
 
 export interface PurchaseLine {
@@ -49,19 +49,8 @@ export interface PlanItem {
   reason: string;
 }
 
-export interface SkippedIngredient {
-  key: string;
-  ingredients: string[];
-  recipes: string[];
-  productId: string | null;
-  productName: string | null;
-  quantity: number;
-  reason: string;
-}
-
 export interface CartPlan {
   items: PlanItem[];
-  skipped: SkippedIngredient[];
   /** Everything she has bought, most frequent first: a search prefers products she already knows. */
   purchasedProductIds: string[];
   stats: {
@@ -77,18 +66,15 @@ export interface BuildCartPlanInput {
   recipes: RecipeInfo[];
   pastMenus: MenuSnapshot[];
   orders: PurchaseOrder[];
-  extraIngredients?: string[];
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** A menu is paired with the first order delivered up to this many days after it was saved. */
 export const PAIRING_WINDOW_DAYS = 5;
-/** Below this purchase rate (with enough evidence) the ingredient is assumed to be in the pantry. */
+/** Below this purchase rate (with enough evidence) the item is flagged as "check if you already have it". */
 export const MIN_PURCHASE_RATE = 0.3;
-/** Weeks of evidence needed before trusting a "she does not buy this" signal. */
+/** Weeks of evidence needed before trusting a "she rarely buys this" signal. */
 export const MIN_EVIDENCE_WEEKS = 3;
-/** Products present in at least this share of orders are treated as habitual purchases. */
-export const HABITUAL_ORDER_SHARE = 0.5;
 /** A partial name match is accepted for products bought in at least this share of orders. */
 export const HABITUAL_PARTIAL_SHARE = 0.4;
 
@@ -160,15 +146,16 @@ export function matchIngredientToProduct(ingredientTokens: string[], productToke
   return { full: matched === ingredientTokens.length, score: matched / ingredientTokens.length, headPosition };
 }
 
-/** Removes amounts and notes so the text works as a supermarket search ("200 g de champiñones (opcional)" → "champiñones"). */
+/** Keeps the meaningful words for a supermarket search ("200 g de champiñones (opcional)" → "champiñones"). */
 export function searchQueryFor(label: string): string {
-  const cleaned = label
+  const words = label
     .replace(/\([^)]*\)/g, " ")
-    .replace(/^\s*[\d.,/½¼¾]+\s*(?:g|gr|kg|ml|l|cl|ud|uds|unidades?|cucharadas?|cdas?|tazas?|sobres?|latas?|botes?|hojas?|dientes?)?\.?\s+(?:de\s+)?/i, "")
-    .replace(/\s+[\d.,/]+\s*$/, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return cleaned || label.trim();
+    .split(/\s+/)
+    .filter(word => {
+      const normalized = normalizeText(word);
+      return normalized.length > 0 && !STOPWORDS.has(normalized) && !/^\d/.test(normalized);
+    });
+  return words.length > 0 ? words.join(" ") : label.trim();
 }
 
 function sameTokens(a: string[], b: string[]): boolean {
@@ -198,28 +185,57 @@ function plural(count: number, singular: string, pluralForm: string): string {
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
+const round3 = (value: number) => Math.round(value * 1000) / 1000;
+
+export interface QuantitySample {
+  /** Dishes of that week's menu that used the ingredient. */
+  uses: number;
+  /** Units (or kg) bought in the order that followed. */
+  quantity: number;
+}
+
+/**
+ * Quantity for this week's dishes: what she bought per dish in past weeks,
+ * times the dishes that use it now. Capped at twice her largest purchase so a
+ * pantry item that appears in many dishes is not multiplied absurdly.
+ */
+export function quantityForDishes(samples: QuantitySample[], dishes: number, fallback: number[]): number {
+  if (samples.length === 0 || dishes <= 0) return usualQuantity(fallback);
+  const quantities = samples.map(sample => sample.quantity);
+  const cap = 2 * Math.max(...quantities);
+  if (quantities.some(quantity => !Number.isInteger(quantity))) {
+    const typicalDishes = Math.max(1, median(samples.map(sample => sample.uses)));
+    const multiplier = Math.max(1, Math.round(dishes / typicalDishes));
+    return round3(Math.min(cap, usualQuantity(quantities) * multiplier));
+  }
+  const perDish = median(samples.map(sample => sample.quantity / Math.max(sample.uses, 1)));
+  return Math.min(cap, Math.max(1, Math.floor(perDish * dishes + 0.5)));
+}
+
 interface IngredientGroup {
   key: string;
   tokens: string[];
   labels: string[];
-  recipes: Set<string>;
+  recipes: string[];
+  /** Positions of this week's dishes that use the ingredient. */
+  dishes: Set<number>;
 }
 
 class IngredientIndex {
   readonly groups: IngredientGroup[] = [];
 
-  add(label: string, recipe: string | null): IngredientGroup | null {
+  add(label: string, recipe: string, dish: number): void {
     const tokens = tokenize(label);
-    if (tokens.length === 0) return null;
+    if (tokens.length === 0) return;
     let group = this.groups.find(existing => sameTokens(existing.tokens, tokens));
     if (!group) {
-      group = { key: tokens.join(" "), tokens, labels: [], recipes: new Set() };
+      group = { key: tokens.join(" "), tokens, labels: [], recipes: [], dishes: new Set() };
       this.groups.push(group);
     }
     const trimmed = label.trim();
     if (!group.labels.some(existing => normalizeText(existing) === normalizeText(trimmed))) group.labels.push(trimmed);
-    if (recipe) group.recipes.add(recipe);
-    return group;
+    if (!group.recipes.includes(recipe)) group.recipes.push(recipe);
+    group.dishes.add(dish);
   }
 
   find(tokens: string[]): IngredientGroup | undefined {
@@ -239,8 +255,10 @@ interface ProductStats {
 }
 
 interface PairedWeek {
-  ingredientKeys: Set<string>;
-  ingredientHeads: string[];
+  /** Ingredient key → dishes of that week's menu using it. */
+  ingredientUses: Map<string, number>;
+  /** First word of every ingredient, once per dish. */
+  dishHeads: string[][];
   purchases: Map<string, number>;
 }
 
@@ -257,7 +275,7 @@ function orderPurchases(order: PurchaseOrder): Map<string, number> {
   const purchases = new Map<string, number>();
   for (const line of order.lines) {
     if (!line.productId || !(line.quantity > 0)) continue;
-    purchases.set(line.productId, (purchases.get(line.productId) ?? 0) + line.quantity);
+    purchases.set(line.productId, round3((purchases.get(line.productId) ?? 0) + line.quantity));
   }
   return purchases;
 }
@@ -292,9 +310,8 @@ export function pairMenusWithOrders(pastMenus: MenuSnapshot[], orders: PurchaseO
 interface Candidate {
   stats: ProductStats;
   match: NameMatch;
-  /** Paired weeks with this exact ingredient on the menu in which the product was bought. */
-  support: number;
-  quantities: number[];
+  /** Past weeks with this ingredient on the menu in which the product was bought. */
+  samples: QuantitySample[];
 }
 
 interface ProductChoice extends Candidate {
@@ -303,7 +320,7 @@ interface ProductChoice extends Candidate {
 }
 
 const byPreference = (a: Candidate, b: Candidate) =>
-  b.support - a.support || b.stats.orderCount - a.stats.orderCount || a.stats.name.length - b.stats.name.length;
+  b.samples.length - a.samples.length || b.stats.orderCount - a.stats.orderCount || a.stats.name.length - b.stats.name.length;
 
 /**
  * Tiers, from strongest to weakest evidence: same name; partial name that
@@ -313,33 +330,38 @@ const byPreference = (a: Candidate, b: Candidate) =>
  */
 function chooseProduct(
   group: IngredientGroup, candidates: Candidate[], evidenceWeeks: number, weeks: PairedWeek[], orderTotal: number,
+  claimedByName: Set<string>,
 ): ProductChoice | null {
   const share = (candidate: Candidate) => candidate.stats.orderCount / Math.max(orderTotal, 1);
-  const near = candidates.filter(candidate => candidate.match.headPosition < HEAD_WINDOW);
+  const allNear = candidates.filter(candidate => candidate.match.headPosition < HEAD_WINDOW);
   const ingredientChoice = (candidate: Candidate | undefined, basis: ProductChoice["basis"]): ProductChoice | null =>
     candidate ? { ...candidate, evidenceWeeks, basis } : null;
 
-  const full = near.filter(candidate => candidate.match.full).sort(byPreference)[0];
+  const full = allNear.filter(candidate => candidate.match.full).sort(byPreference)[0];
   if (full) return ingredientChoice(full, "ingrediente");
+  // "Jamón serrano" must not become the "Jamón cocido" another ingredient ("Jamón York") already names.
+  const near = allNear.filter(candidate => !claimedByName.has(candidate.stats.productId));
 
   const learned = near
-    .filter(candidate => candidate.match.score >= 0.5 && candidate.support >= 2)
-    .filter(candidate => candidate.support / evidenceWeeks >= 1.3 * share(candidate))
+    .filter(candidate => candidate.match.score >= 0.5 && candidate.samples.length >= 2)
+    .filter(candidate => candidate.samples.length / evidenceWeeks >= 1.3 * share(candidate))
     .sort(byPreference)[0];
   if (learned) return ingredientChoice(learned, "ingrediente");
 
-  const familyWeeks = weeks.filter(week => week.ingredientHeads.some(head => tokensMatch(head, group.tokens[0])));
-  const familyWithSupport = near.map(candidate => {
-    const quantities = familyWeeks
-      .map(week => week.purchases.get(candidate.stats.productId))
-      .filter((quantity): quantity is number => quantity !== undefined);
-    return { ...candidate, support: quantities.length, quantities };
-  });
+  const familyUses = (week: PairedWeek) =>
+    week.dishHeads.filter(heads => heads.some(head => tokensMatch(head, group.tokens[0]))).length;
+  const familyWeeks = weeks.filter(week => familyUses(week) > 0);
+  const familyWithSamples = near.map(candidate => ({
+    ...candidate,
+    samples: familyWeeks
+      .filter(week => week.purchases.has(candidate.stats.productId))
+      .map(week => ({ uses: familyUses(week), quantity: week.purchases.get(candidate.stats.productId)! })),
+  }));
   // Only when one product dominates the family: many kinds of "queso" tell nothing about grated cheese.
   const familyPurchaseWeeks = familyWeeks.filter(week => near.some(candidate => week.purchases.has(candidate.stats.productId))).length;
-  const family = familyWithSupport
-    .filter(candidate => candidate.support >= 2 && candidate.support / familyPurchaseWeeks >= 0.6)
-    .filter(candidate => candidate.support / familyWeeks.length >= Math.max(MIN_PURCHASE_RATE, 1.3 * share(candidate)))
+  const family = familyWithSamples
+    .filter(candidate => candidate.samples.length >= 2 && candidate.samples.length / familyPurchaseWeeks >= 0.6)
+    .filter(candidate => candidate.samples.length / familyWeeks.length >= Math.max(MIN_PURCHASE_RATE, 1.3 * share(candidate)))
     .sort(byPreference)[0];
   if (family) return { ...family, evidenceWeeks: familyWeeks.length, basis: "familia" };
 
@@ -348,10 +370,30 @@ function chooseProduct(
     .sort(byPreference)[0];
   if (habitual) return ingredientChoice(habitual, "habitual");
 
-  const brand = candidates.filter(candidate => candidate.match.full).sort(byPreference)[0];
+  // A single word found at the end of a name is a brand ("Nutella"); longer ingredients there are flavours.
+  if (group.tokens.length > 1) return null;
+  const brand = candidates.filter(candidate => candidate.match.full && !claimedByName.has(candidate.stats.productId)).sort(byPreference)[0];
   return ingredientChoice(brand, "ingrediente");
 }
 
+function dishesText(recipes: string[], dishes: number): string {
+  const names = recipes.length > 3 ? `${recipes.slice(0, 3).join(", ")}…` : recipes.join(", ");
+  return `Para ${plural(dishes, "plato", "platos")} (${names})`;
+}
+
+interface ProductAccumulator {
+  item: PlanItem;
+  dishes: Set<number>;
+  samples: QuantitySample[];
+  fallback: number[];
+  strength: number;
+  reasonTail: string;
+}
+
+/**
+ * Every ingredient of every dish in the menu goes to the cart: the history
+ * only decides which product she buys for it and how much per dish.
+ */
 export function buildCartPlan(input: BuildCartPlanInput): CartPlan {
   const recipesById = new Map(input.recipes.map(recipe => [recipe.id, recipe]));
   const products = new Map<string, ProductStats>();
@@ -384,121 +426,120 @@ export function buildCartPlan(input: BuildCartPlanInput): CartPlan {
   }
 
   const current = new IngredientIndex();
-  for (const recipeId of input.menuRecipeIds) {
+  input.menuRecipeIds.forEach((recipeId, dish) => {
     const recipe = recipesById.get(recipeId);
-    if (!recipe) continue;
-    for (const ingredient of recipe.ingredients) current.add(ingredient, recipe.name);
-  }
-  for (const extra of input.extraIngredients ?? []) current.add(extra, null);
+    if (!recipe) return;
+    for (const ingredient of recipe.ingredients) current.add(ingredient, recipe.name, dish);
+  });
 
   const pairs = pairMenusWithOrders(input.pastMenus, orders);
   const weeks: PairedWeek[] = pairs.map(({ menu, order }) => {
-    const ingredientKeys = new Set<string>();
-    const ingredientHeads: string[] = [];
+    const ingredientUses = new Map<string, number>();
+    const dishHeads: string[][] = [];
     for (const recipeId of menu.recipeIds) {
       const recipe = recipesById.get(recipeId);
       if (!recipe) continue;
-      for (const tokens of recipeIngredientTokens(recipe)) {
-        ingredientHeads.push(tokens[0]);
+      const ingredients = recipeIngredientTokens(recipe);
+      dishHeads.push(ingredients.map(tokens => tokens[0]));
+      for (const tokens of ingredients) {
         const group = current.find(tokens);
-        if (group) ingredientKeys.add(group.key);
+        if (group) ingredientUses.set(group.key, (ingredientUses.get(group.key) ?? 0) + 1);
       }
     }
-    return { ingredientKeys, ingredientHeads, purchases: orderPurchases(order) };
+    return { ingredientUses, dishHeads, purchases: orderPurchases(order) };
   });
 
-  const merged = new Map<string, PlanItem>();
+  const merged = new Map<string, ProductAccumulator>();
   const searchItems: PlanItem[] = [];
-  const skipped: SkippedIngredient[] = [];
 
-  for (const group of current.groups) {
-    const label = group.labels[0];
-    const recipes = [...group.recipes];
-    const weeksWithIngredient = weeks.filter(week => week.ingredientKeys.has(group.key));
-    const evidenceWeeks = weeksWithIngredient.length;
-
+  const analysed = current.groups.map(group => {
+    const weeksWithIngredient = weeks.filter(week => week.ingredientUses.has(group.key));
     const candidates: Candidate[] = [];
     for (const stats of products.values()) {
       const match = matchIngredientToProduct(group.tokens, stats.tokens);
       if (!match) continue;
-      const quantities = weeksWithIngredient
-        .map(week => week.purchases.get(stats.productId))
-        .filter((quantity): quantity is number => quantity !== undefined);
-      candidates.push({ stats, match, support: quantities.length, quantities });
+      const samples = weeksWithIngredient
+        .filter(week => week.purchases.has(stats.productId))
+        .map(week => ({ uses: week.ingredientUses.get(group.key)!, quantity: week.purchases.get(stats.productId)! }));
+      candidates.push({ stats, match, samples });
     }
+    return { group, candidates, evidenceWeeks: weeksWithIngredient.length };
+  });
+  const claimedByName = new Set(analysed.flatMap(({ candidates }) => {
+    const full = candidates.filter(candidate => candidate.match.full && candidate.match.headPosition < HEAD_WINDOW).sort(byPreference)[0];
+    return full ? [full.stats.productId] : [];
+  }));
 
-    const choice = chooseProduct(group, candidates, evidenceWeeks, weeks, orders.length);
-
+  for (const { group, candidates, evidenceWeeks } of analysed) {
+    const choice = chooseProduct(group, candidates, evidenceWeeks, weeks, orders.length, claimedByName);
     if (!choice) {
-      if (evidenceWeeks >= MIN_EVIDENCE_WEEKS) {
-        skipped.push({
-          key: group.key, ingredients: group.labels, recipes, productId: null, productName: null, quantity: 0,
-          reason: `En ${plural(evidenceWeeks, "semana", "semanas")} con «${label}» en el menú no compraste nada parecido en Mercadona.`,
-        });
-      } else {
-        const searchQuery = searchQueryFor(group.labels.reduce((shortest, current) => current.length < shortest.length ? current : shortest));
-        searchItems.push({
-          key: group.key, ingredients: group.labels, recipes, productId: null, productName: null,
-          searchQuery, quantity: 1, category: null, unitPrice: null, thumbnail: null, source: "busqueda", confidence: "baja",
-          reason: `Sin historial de compra: se buscará «${searchQuery}» en Mercadona y se añadirá el primer resultado.`,
-        });
-      }
-      continue;
-    }
-
-    const { stats, support } = choice;
-    const purchaseRate = choice.evidenceWeeks > 0 ? support / choice.evidenceWeeks : 0;
-    const quantity = usualQuantity(support > 0 ? choice.quantities : stats.quantities);
-
-    if (choice.evidenceWeeks >= MIN_EVIDENCE_WEEKS && purchaseRate < MIN_PURCHASE_RATE && stats.orderCount / Math.max(orders.length, 1) < HABITUAL_ORDER_SHARE) {
-      skipped.push({
-        key: group.key, ingredients: group.labels, recipes, productId: stats.productId, productName: stats.name, quantity,
-        reason: support === 0
-          ? `En ${plural(choice.evidenceWeeks, "semana", "semanas")} con «${label}» en el menú no lo compraste: lo tendrás en casa o lo sustituyes.`
-          : `En ${plural(choice.evidenceWeeks, "semana", "semanas")} con «${label}» en el menú solo lo compraste ${plural(support, "vez", "veces")}: lo tendrás en casa.`,
+      const searchQuery = searchQueryFor(group.labels.reduce((shortest, label) => label.length < shortest.length ? label : shortest));
+      searchItems.push({
+        key: group.key, ingredients: [...group.labels], recipes: [...group.recipes], productId: null, productName: null,
+        searchQuery, quantity: 1, category: null, unitPrice: null, thumbnail: null, source: "busqueda", confidence: "baja",
+        reason: `${dishesText(group.recipes, group.dishes.size)}. No lo has comprado antes en Mercadona: se buscará «${searchQuery}».`,
       });
       continue;
     }
 
-    let reason: string;
+    const { stats, samples } = choice;
+    const support = samples.length;
+    const rarelyBought = choice.evidenceWeeks >= MIN_EVIDENCE_WEEKS && support / choice.evidenceWeeks < MIN_PURCHASE_RATE;
+    let reasonTail: string;
     let confidence: PlanConfidence;
     if (choice.basis === "familia") {
-      const family = label.trim().split(/\s+/)[0].toLocaleLowerCase("es");
-      reason = `Cuando hay «${family}» en el menú lo compras (${support} de ${plural(choice.evidenceWeeks, "semana", "semanas")}); sueles coger ${quantity}.`;
+      const family = group.labels[0].trim().split(/\s+/)[0].toLocaleLowerCase("es");
+      reasonTail = `Es lo que compras cuando hay «${family}» en el menú (${support} de ${plural(choice.evidenceWeeks, "semana", "semanas")}).`;
       confidence = "media";
     } else if (support > 0) {
-      reason = `Lo compraste en ${support} de ${plural(choice.evidenceWeeks, "semana", "semanas")} con «${label}» en el menú; sueles coger ${quantity}.`;
+      reasonTail = `Cantidad según lo que compraste las ${plural(support, "semana", "semanas")} que lo tuviste en el menú.`;
       confidence = support >= MIN_EVIDENCE_WEEKS && choice.match.full ? "alta" : "media";
     } else {
-      reason = `Es el producto que sueles comprar para «${label}» (${plural(stats.orderCount, "pedido", "pedidos")}).`;
+      reasonTail = `Es el producto que sueles comprar (${plural(stats.orderCount, "pedido", "pedidos")}).`;
       confidence = stats.orderCount / Math.max(orders.length, 1) >= 0.3 ? "media" : "baja";
     }
+    if (rarelyBought) {
+      reasonTail += " Casi nunca lo compras con estos platos: comprueba si ya lo tienes en casa.";
+      confidence = "baja";
+    }
 
+    const strength = support + (choice.match.full ? 0.5 : 0);
     const existing = merged.get(stats.productId);
     if (existing) {
-      existing.quantity = Math.max(existing.quantity, quantity);
-      existing.ingredients.push(...group.labels.filter(labelText => !existing.ingredients.includes(labelText)));
-      existing.recipes.push(...recipes.filter(recipe => !existing.recipes.includes(recipe)));
-      if (confidence === "alta" || (confidence === "media" && existing.confidence === "baja")) {
-        existing.confidence = confidence;
-        existing.reason = reason;
+      for (const dish of group.dishes) existing.dishes.add(dish);
+      existing.item.ingredients.push(...group.labels.filter(label => !existing.item.ingredients.includes(label)));
+      existing.item.recipes.push(...group.recipes.filter(recipe => !existing.item.recipes.includes(recipe)));
+      if (strength > existing.strength) {
+        Object.assign(existing, { samples, strength, reasonTail });
+        existing.item.confidence = confidence;
       }
       continue;
     }
     merged.set(stats.productId, {
-      key: group.key, ingredients: [...group.labels], recipes, productId: stats.productId, productName: stats.name,
-      searchQuery: searchQueryFor(label), quantity, category: stats.category, unitPrice: stats.unitPrice, thumbnail: stats.thumbnail,
-      source: "historial", confidence, reason,
+      item: {
+        key: group.key, ingredients: [...group.labels], recipes: [...group.recipes], productId: stats.productId,
+        productName: stats.name, searchQuery: searchQueryFor(group.labels[0]), quantity: 1, category: stats.category,
+        unitPrice: stats.unitPrice, thumbnail: stats.thumbnail, source: "historial", confidence, reason: "",
+      },
+      dishes: new Set(group.dishes),
+      samples,
+      fallback: stats.quantities,
+      strength,
+      reasonTail,
     });
   }
 
-  const items = [...merged.values()].sort((a, b) =>
+  // Quantities are computed once all the dishes that need each product are known.
+  const items = [...merged.values()].map(({ item, dishes, samples, fallback, reasonTail }) => ({
+    ...item,
+    quantity: quantityForDishes(samples, dishes.size, fallback),
+    reason: `${dishesText(item.recipes, dishes.size)}. ${reasonTail}`,
+  })).sort((a, b) =>
     (a.category ?? "~").localeCompare(b.category ?? "~", "es") || (a.productName ?? "").localeCompare(b.productName ?? "", "es"));
   const deliveredTimes = orders.map(order => Date.parse(order.deliveredAt)).filter(time => !Number.isNaN(time)).sort((a, b) => a - b);
 
   return {
     items: [...items, ...searchItems],
-    skipped,
     purchasedProductIds: [...products.values()]
       .sort((a, b) => b.orderCount - a.orderCount || a.name.localeCompare(b.name, "es"))
       .map(stats => stats.productId),

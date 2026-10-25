@@ -2,12 +2,10 @@ import { db, recipesTable, savedMenusTable, weeklyMenusTable, type WeeklyMenuDay
 import { desc, eq } from "drizzle-orm";
 import { buildCartPlan, type MenuSnapshot } from "./mercadona-planner";
 import {
-  latestPlan, loadMenuSnapshots, loadPurchaseHistory, recordMenuSnapshot, savePlan, type StoredCartPlan,
+  loadMenuSnapshots, loadPurchaseHistory, recordMenuSnapshot, savePlan, type StoredCartPlan,
 } from "./mercadona-store";
-import { listWhatsAppIngredients } from "./whatsapp-store";
 
 const SLOTS = ["primero", "segundo", "primero2", "segundo2"] as const;
-const MAX_EXTRA_INGREDIENTS = 100;
 
 export function menuRecipeIds(days: WeeklyMenuDay[] | null | undefined): number[] {
   const ids: number[] = [];
@@ -22,34 +20,14 @@ export function menuRecipeIds(days: WeeklyMenuDay[] | null | undefined): number[
   return ids;
 }
 
-export function parseExtraIngredients(value: unknown): string[] | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  const extras: string[] = [];
-  for (const item of value.slice(0, MAX_EXTRA_INGREDIENTS)) {
-    if (typeof item !== "string") continue;
-    const trimmed = item.trim().slice(0, 120);
-    const key = trimmed.toLocaleLowerCase("es");
-    if (trimmed && !seen.has(key)) {
-      seen.add(key);
-      extras.push(trimmed);
-    }
-  }
-  return extras;
-}
-
 export class MenuNotFoundError extends Error {}
 
 /**
- * Computes the cart for the user's latest weekly menu (or `menuId`) from her
- * Mercadona history, WhatsApp additions and the ingredients she added by hand.
- * When the connector asks without extras, the ones from her last plan for the
- * same menu are reused so a plan prepared in the app is not lost.
+ * Computes the cart for the menu she designed (her current weekly menu, or
+ * `menuId`): every ingredient of every dish, with the product and quantity per
+ * dish learned from her Mercadona history.
  */
-export async function computeCartPlan(
-  userId: number, options: { menuId?: number; extraIngredients?: string[] } = {},
-): Promise<StoredCartPlan> {
+export async function computeCartPlan(userId: number, options: { menuId?: number } = {}): Promise<StoredCartPlan> {
   const menus = await db.select().from(weeklyMenusTable)
     .where(eq(weeklyMenusTable.userId, userId))
     .orderBy(desc(weeklyMenusTable.createdAt), desc(weeklyMenusTable.id));
@@ -58,23 +36,17 @@ export async function computeCartPlan(
 
   const currentRecipeIds = menu ? menuRecipeIds(menu.days) : [];
   await recordMenuSnapshot(userId, currentRecipeIds);
-  const [recipes, saved, snapshots, orders, whatsapp] = await Promise.all([
+  const [recipes, saved, snapshots, orders] = await Promise.all([
     db.select().from(recipesTable).where(eq(recipesTable.userId, userId)),
     db.select().from(savedMenusTable).where(eq(savedMenusTable.userId, userId)),
     loadMenuSnapshots(userId),
     loadPurchaseHistory(userId),
-    listWhatsAppIngredients(userId),
   ]);
 
-  let manual = options.extraIngredients;
-  if (manual === undefined) {
-    const previous = await latestPlan(userId);
-    manual = previous && previous.menuId === (menu?.id ?? null) ? previous.extraIngredients : [];
-  }
-
+  // The weekly menu row is edited in place, so its creation date says nothing about
+  // when its current dishes were bought: only saved menus and snapshots are history.
   const pastMenus: MenuSnapshot[] = [
     ...saved.map(entry => ({ savedAt: entry.savedAt.toISOString(), recipeIds: menuRecipeIds(entry.days) })),
-    ...menus.map(entry => ({ savedAt: entry.createdAt.toISOString(), recipeIds: menuRecipeIds(entry.days) })),
     ...snapshots,
   ];
   const plan = buildCartPlan({
@@ -82,8 +54,6 @@ export async function computeCartPlan(
     recipes: recipes.map(recipe => ({ id: recipe.id, name: recipe.name, ingredients: recipe.ingredients ?? [] })),
     pastMenus,
     orders,
-    extraIngredients: [...whatsapp.map(item => item.ingredient), ...manual],
   });
-  const label = menu ? "tu menú semanal" : "tu lista sin menú";
-  return savePlan(userId, menu?.id ?? null, label, manual, plan);
+  return savePlan(userId, menu?.id ?? null, "tu menú semanal", [], plan);
 }

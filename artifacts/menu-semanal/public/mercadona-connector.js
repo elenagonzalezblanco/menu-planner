@@ -332,7 +332,7 @@
 
   // ── Main flows ─────────────────────────────────────────────────────────────
 
-  function describeResult(ui, user, plan, outcome) {
+  function describeResult(ui, outcome) {
     const { added, kept, missing } = outcome;
     ui.result.replaceChildren();
     ui.result.append(element("div", {
@@ -348,21 +348,6 @@
     section("Añadido al carro", added.map(item => itemRow(item.quantity, item.productName, item.reason, item.thumbnail)));
     section("Ya estaba en el carro", kept.map(item => itemRow(item.inCart, item.productName, "No se ha sumado nada.", item.thumbnail)));
     section("No encontrado", missing.map(item => itemRow(0, item.ingredients.join(", "), item.reason)));
-    section("No añadido (revisa si lo necesitas)", (plan.skipped || []).map(skip => {
-      if (!skip.productId) return itemRow(0, skip.ingredients.join(", "), skip.reason);
-      const button = element("button", { textContent: "Añadir" });
-      button.addEventListener("click", async () => {
-        button.disabled = true;
-        try {
-          await putItems(user, [{ productId: skip.productId, quantity: skip.quantity > 0 ? skip.quantity : 1 }]);
-          button.textContent = "Añadido ✓";
-        } catch {
-          button.textContent = "Error";
-          button.disabled = false;
-        }
-      });
-      return itemRow(skip.quantity > 0 ? skip.quantity : 1, skip.productName, `${skip.ingredients.join(", ")} · ${skip.reason}`, null, button);
-    }));
     const reload = element("button", { className: "primary", textContent: "Ver el carro" });
     reload.addEventListener("click", () => location.reload());
     ui.result.append(element("div", { className: "actions" }, [reload]));
@@ -460,7 +445,7 @@
         warehouse = (data.results || []).find(order => order.warehouse_code)?.warehouse_code || "";
       }
       const outcome = await applyPlan(plan, ui, user);
-      describeResult(ui, user, plan, outcome);
+      describeResult(ui, outcome);
       if (plan.id && TOKEN) {
         await micocina(`/plan/${plan.id}/result`, {
           method: "POST",

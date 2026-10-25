@@ -22,22 +22,11 @@ export interface CartPlanItem {
   reason: string;
 }
 
-export interface SkippedIngredient {
-  key: string;
-  ingredients: string[];
-  recipes: string[];
-  productId: string | null;
-  productName: string | null;
-  quantity: number;
-  reason: string;
-}
-
 export interface CartPlan {
   id: number;
   menuId: number | null;
   menuLabel: string | null;
   items: CartPlanItem[];
-  skipped: SkippedIngredient[];
   status: "pending" | "applied";
   result: {
     added: { productId: string; productName: string; quantity: number }[];
@@ -127,7 +116,7 @@ export function useConnectorStatus(token: string | null) {
 export function useCartPlan(token: string | null) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { menuId?: number; extraIngredients: string[] }) =>
+    mutationFn: (input: { menuId?: number }) =>
       connectorRequest<CartPlan>(token!, "/plan", "POST", input),
     onSuccess: () => client.invalidateQueries({ queryKey: ["mercadona-connector-status", token] }),
   });

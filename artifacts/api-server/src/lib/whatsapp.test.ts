@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { extractWhatsAppMessages, mergeWhatsAppIngredients, parseShoppingCommand, validMetaSignature } from "./whatsapp";
+import { extractWhatsAppMessages, mergeWhatsAppIngredients, parseShoppingCommand, validMetaSignature, WHATSAPP_HELP } from "./whatsapp";
+import { parseImageItems } from "./whatsapp-image";
 import { processWhatsAppJob, type WhatsAppWorkerDependencies } from "./whatsapp-worker";
 
 test("Spanish shopping commands preserve amounts and reject unsupported actions", () => {
@@ -39,11 +40,17 @@ test("signature checks exact bytes and safely rejects malformed signatures", () 
   assert.equal(validMetaSignature(body, signature, ""), false);
 });
 
-test("extracts all text messages for only the configured business number", () => {
-  const messages = [{ id: "m1", from: "34600000001", type: "text", text: { body: "añade pan" } }, { id: "m2", from: "34600000001", type: "audio" }];
+test("extracts all text messages and list photos for only the configured business number", () => {
+  const messages = [
+    { id: "m1", from: "34600000001", type: "text", text: { body: "añade pan" } },
+    { id: "m2", from: "34600000001", type: "audio" },
+    { id: "m3", from: "34600000001", type: "image", image: { id: "1234567890", mime_type: "image/jpeg", caption: "añade sal" } },
+    { id: "m4", from: "34600000001", type: "image", image: { id: "../../me" } },
+  ];
   const change = { field: "messages", value: { metadata: { phone_number_id: "123" }, messages } };
   assert.deepEqual(extractWhatsAppMessages({ object: "whatsapp_business_account", entry: [{ changes: [change] }] }, "123"), [
     { id: "m1", phone: "34600000001", text: "añade pan" }, { id: "m2", phone: "34600000001", text: "" },
+    { id: "m3", phone: "34600000001", text: "añade sal", mediaId: "1234567890" }, { id: "m4", phone: "34600000001", text: "" },
   ]);
   assert.deepEqual(extractWhatsAppMessages({ object: "whatsapp_business_account", entry: [{ changes: [change] }] }, "999"), []);
   assert.deepEqual(extractWhatsAppMessages({ entry: [] }, "123"), []);
@@ -63,4 +70,13 @@ test("reply retries do not re-run ingredient writes", async () => {
   await assert.rejects(processWhatsAppJob({ ...deps, send: async () => { throw new Error("provider down"); } }), /provider down/);
   assert.deepEqual(events, ["Añadido: pan", "m1"]);
   assert.equal(await processWhatsAppJob({ ...deps, claim: async () => undefined }), false);
+});
+
+test("photo readings become clean shopping list lines", () => {
+  assert.deepEqual(parseImageItems(JSON.stringify({ items: ["- leche entera x2", "• Huevos", "1. pan de molde", "huevos", "", 7, "x".repeat(121), "  2 kg  tomates "] })),
+    ["leche entera x2", "Huevos", "pan de molde", "2 kg tomates"]);
+  assert.deepEqual(parseImageItems(JSON.stringify({ items: Array.from({ length: 50 }, (_, index) => `producto ${index}`) })).length, 40);
+  for (const bad of ["", "no json", "{}", JSON.stringify({ items: "leche" }), "null"]) assert.deepEqual(parseImageItems(bad), []);
+  assert.match(WHATSAPP_HELP, /foto de tu lista/);
+  assert.match(WHATSAPP_HELP, /no se modifica el carrito/);
 });

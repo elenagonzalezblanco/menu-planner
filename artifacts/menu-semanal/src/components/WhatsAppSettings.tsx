@@ -38,8 +38,8 @@ function AccountWhatsAppSettings({ userId }: { userId: number }) {
     <section className="rounded-2xl border border-border bg-card p-5 space-y-3" aria-label="WhatsApp">
       <h2 className="text-lg font-semibold">Añadir desde WhatsApp</h2>
       <p className="text-sm text-muted-foreground">
-        Envía «añade leche, huevos y pan» y aparecerán aquí junto a los ingredientes del menú.
-        También funciona sin menú. No modifica el carrito de Mercadona.
+        Envía «añade leche, huevos y pan» o una foto de tu lista escrita a mano y aparecerán aquí junto a los
+        ingredientes del menú. También funciona sin menú. No modifica el carrito de Mercadona.
       </p>
       {status.isLoading && <p role="status">Comprobando conexión…</p>}
       {status.isError && <p role="alert" className="text-destructive">{status.error.message}</p>}

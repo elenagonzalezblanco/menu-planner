@@ -57,18 +57,24 @@ orders and plans. The algorithm lives in
 ## WhatsApp → shopping list
 
 WhatsApp adds ingredients **to the existing shopping list**, not to Mercadona's
-cart. This first version accepts explicit Spanish text commands, not an
-unrestricted AI conversation or voice notes:
+cart. It accepts explicit Spanish text commands and **photos of handwritten
+shopping lists**, not an unrestricted AI conversation or voice notes:
 
 - `añade leche, huevos y pan`
 - `añade a la lista de la compra 2 kg de tomates`
 - `lista: leche; aceite; arroz`
+- A photo of a handwritten list: the image is downloaded from Meta (only for
+  linked phones), read by the Azure OpenAI vision model (`AZURE_OPENAI_MODEL`,
+  e.g. gpt-4o) and every product it reads is added, keeping quantities as
+  written; crossed-out lines are ignored. A caption such as `añade sal` is
+  added too. Photos are processed in memory and never stored; failed downloads
+  or readings are retried twice before the user gets an apology.
 - `ayuda` (or an unsupported message) returns usage instructions without changes.
 
 Use commas, semicolons, newlines or ` y ` to separate ingredients. Quantities
 remain part of the ingredient text; they are not converted or summed. Limit:
-20 ingredients, 120 characters each, 2,000 characters per message. A comma between
-digits is preserved as a decimal separator.
+20 ingredients per text message (40 per photo), 120 characters each, 2,000
+characters per message. A comma between digits is preserved as a decimal separator.
 
 ### Activation
 

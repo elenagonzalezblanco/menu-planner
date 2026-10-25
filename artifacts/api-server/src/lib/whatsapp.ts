@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-export const WHATSAPP_HELP = 'Envía "añade leche, huevos y pan" o "lista: 2 litros de leche, pan" para añadir ingredientes a tu lista de la compra. Para vincular tu cuenta, usa el código de la sección WhatsApp de la web. Solo se admiten mensajes de texto; no se modifica el carrito de Mercadona.';
+export const WHATSAPP_HELP = 'Envía "añade leche, huevos y pan", "lista: 2 litros de leche, pan" o una foto de tu lista escrita a mano para añadir productos a tu lista de la compra. Para vincular tu cuenta, usa el código de la sección WhatsApp de la web. No se admiten audios; no se modifica el carrito de Mercadona.';
 
 export type ShoppingCommand =
   | { kind: "link"; code: string }
@@ -63,7 +63,10 @@ export function validMetaSignature(body: Buffer, signature: string | undefined, 
 export interface IncomingWhatsAppMessage {
   id: string;
   phone: string;
+  /** Text body, or the caption of a photo. */
   text: string;
+  /** WhatsApp media id of a photo (a handwritten shopping list). */
+  mediaId?: string;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -88,11 +91,14 @@ export function extractWhatsAppMessages(payload: unknown, phoneNumberId: string)
         const message = record(raw);
         if (typeof message?.id !== "string" || message.id.length > 200
           || typeof message.from !== "string" || !/^\d{7,15}$/.test(message.from)) continue;
-        const text = message.type === "text" ? record(message.text)?.body : "";
+        const image = message.type === "image" ? record(message.image) : undefined;
+        const text = message.type === "text" ? record(message.text)?.body : image?.caption;
+        const mediaId = typeof image?.id === "string" && /^\d{1,40}$/.test(image.id) ? image.id : undefined;
         messages.push({
           id: message.id,
           phone: message.from,
           text: typeof text === "string" && text.length <= 2000 ? text : "",
+          ...(mediaId ? { mediaId } : {}),
         });
       }
     }
@@ -119,6 +125,37 @@ export function whatsappConfig(): WhatsAppConfig | undefined {
   if (!appSecret || !verifyToken || !accessToken || !phoneNumberId || !businessNumber || !graphVersion) return;
   if (!/^\d+$/.test(phoneNumberId) || !/^\d{7,15}$/.test(businessNumber) || !/^v\d+\.\d+$/.test(graphVersion)) return;
   return { appSecret, verifyToken, accessToken, phoneNumberId, businessNumber, graphVersion };
+}
+
+/** WhatsApp photos are at most 5 MB; anything larger is not a phone photo of a list. */
+export const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
+
+/** Meta hosts media on its own CDN; never send the access token anywhere else. */
+function isMetaMediaUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && /(^|\.)(fbsbx\.com|fbcdn\.net|facebook\.com|whatsapp\.net)$/.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export async function downloadWhatsAppMedia(config: WhatsAppConfig, mediaId: string): Promise<{ data: Buffer; mimeType: string }> {
+  const headers = { Authorization: `Bearer ${config.accessToken}` };
+  const meta = await fetch(`https://graph.facebook.com/${config.graphVersion}/${encodeURIComponent(mediaId)}`, {
+    headers, signal: AbortSignal.timeout(15_000),
+  });
+  if (!meta.ok) throw new Error(`WhatsApp media HTTP ${meta.status}`);
+  const info = await meta.json() as { url?: unknown; mime_type?: unknown; file_size?: unknown };
+  if (!isMetaMediaUrl(info.url)) throw new Error("WhatsApp media URL is not hosted by Meta");
+  if (typeof info.file_size === "number" && info.file_size > MAX_MEDIA_BYTES) throw new Error("WhatsApp media too large");
+  const file = await fetch(info.url, { headers, signal: AbortSignal.timeout(30_000) });
+  if (!file.ok) throw new Error(`WhatsApp media download HTTP ${file.status}`);
+  const data = Buffer.from(await file.arrayBuffer());
+  if (data.length === 0 || data.length > MAX_MEDIA_BYTES) throw new Error("WhatsApp media size not supported");
+  const mimeType = typeof info.mime_type === "string" ? info.mime_type : file.headers.get("content-type") ?? "image/jpeg";
+  return { data, mimeType: mimeType.split(";")[0].trim().toLowerCase() };
 }
 
 export async function sendWhatsAppReply(config: WhatsAppConfig, phone: string, text: string): Promise<void> {

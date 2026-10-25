@@ -178,6 +178,67 @@ test("WhatsApp webhook, account linking, durable queue and shared shopping list"
     await pool.query("UPDATE whatsapp_messages SET state = 'delivered' WHERE id = 'concurrent'");
   });
 
+  await t.test("handwritten list photos are read, merged with the caption and never re-read", async () => {
+    const photo = (id: string, mediaId: string, caption = "") => {
+      const body = JSON.stringify({ object: "whatsapp_business_account", entry: [{ changes: [{
+        field: "messages", value: { metadata: { phone_number_id: "123" }, messages: [{ id, from: "34600000001", type: "image", image: { id: mediaId, mime_type: "image/jpeg", caption } }] },
+      }] }] });
+      const signature = createHmac("sha256", config.appSecret).update(body).digest("hex");
+      return fetch(`${base}/api/whatsapp/webhook`, {
+        method: "POST", headers: { "Content-Type": "application/json", "X-Hub-Signature-256": `sha256=${signature}` }, body,
+      });
+    };
+    const readings: string[] = [];
+    const reader = async (mediaId: string) => {
+      readings.push(mediaId);
+      if (mediaId === "404") throw new Error("Meta unavailable");
+      if (mediaId === "901") return null;
+      return mediaId === "900" ? [] : ["leche entera x2", "papel cocina"];
+    };
+    const drainPhotos = () => processWhatsAppJob({
+      claim: store.claimWhatsAppJob, process: job => store.processWhatsAppCommand(job, reader),
+      send: async (_phone, reply) => { replies.push(reply); },
+      delivered: async id => { await pool.query("UPDATE whatsapp_messages SET state = 'delivered' WHERE id = $1", [id]); },
+    });
+
+    assert.equal((await photo("photo-1", "111", "añade sal gorda")).status, 200);
+    assert.equal((await pool.query("SELECT media_id FROM whatsapp_messages WHERE id = 'photo-1'")).rows[0].media_id, "111");
+    await drainPhotos();
+    assert.match(replies.at(-1)!, /He leído tu lista\.\nAñadido a tu lista de la compra: leche entera x2, papel cocina, sal gorda\./);
+    assert.equal((await pool.query("SELECT media_id, body FROM whatsapp_messages WHERE id = 'photo-1'")).rows[0].media_id, null);
+    const names = (await store.listWhatsAppIngredients(1)).map(item => item.ingredient);
+    assert.ok(["leche entera x2", "papel cocina", "sal gorda"].every(name => names.includes(name)));
+    await photo("photo-1", "111");
+    assert.equal(await drainPhotos(), false);
+    assert.deepEqual(readings, ["111"]);
+
+    await photo("photo-empty", "900");
+    await drainPhotos();
+    assert.match(replies.at(-1)!, /No he encontrado productos en la foto/);
+    await photo("photo-pdf", "901");
+    await drainPhotos();
+    assert.match(replies.at(-1)!, /No puedo leer ese tipo de archivo/);
+
+    // A failing download is retried, and after three attempts the user gets an apology.
+    await photo("photo-down", "404");
+    await assert.rejects(drainPhotos(), /Meta unavailable/);
+    await pool.query("UPDATE whatsapp_messages SET attempts = 2, updated_at = now() - interval '2 minutes' WHERE id = 'photo-down'");
+    await drainPhotos();
+    assert.match(replies.at(-1)!, /No he podido leer la foto ahora mismo/);
+
+    // Photos from unlinked phones are not even downloaded.
+    const before = readings.length;
+    const body = JSON.stringify({ object: "whatsapp_business_account", entry: [{ changes: [{
+      field: "messages", value: { metadata: { phone_number_id: "123" }, messages: [{ id: "photo-stranger", from: "34600000009", type: "image", image: { id: "222" } }] },
+    }] }] });
+    await fetch(`${base}/api/whatsapp/webhook`, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Hub-Signature-256": `sha256=${createHmac("sha256", config.appSecret).update(body).digest("hex")}` }, body,
+    });
+    await drainPhotos();
+    assert.match(replies.at(-1)!, /Vincula primero/);
+    assert.equal(readings.length, before);
+  });
+
   await t.test("expired codes, unlinking and unsupported commands do not add ingredients", async () => {
     const code = await store.createLinkCode(2);
     await pool.query("UPDATE whatsapp_links SET code_expires_at = now() - interval '1 minute' WHERE user_id = 2");

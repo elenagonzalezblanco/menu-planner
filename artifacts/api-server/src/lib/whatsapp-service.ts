@@ -2,7 +2,20 @@ import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { claimWhatsAppJob, initializeWhatsApp, processWhatsAppCommand } from "./whatsapp-store";
 import { processWhatsAppJob } from "./whatsapp-worker";
-import { sendWhatsAppReply, whatsappConfig } from "./whatsapp";
+import { downloadWhatsAppMedia, sendWhatsAppReply, whatsappConfig, type WhatsAppConfig } from "./whatsapp";
+import { readShoppingListImage, UnreadableImageError } from "./whatsapp-image";
+
+/** Photo of a handwritten list → products, read by the Azure OpenAI vision model. */
+function photoReader(config: WhatsAppConfig) {
+  return async (mediaId: string): Promise<string[] | null> => {
+    try {
+      return await readShoppingListImage(await downloadWhatsAppMedia(config, mediaId));
+    } catch (error) {
+      if (error instanceof UnreadableImageError) return null;
+      throw error;
+    }
+  };
+}
 
 let ready = false;
 export const whatsappReady = (): boolean => ready;
@@ -22,7 +35,7 @@ export function startWhatsAppWorker(): () => void {
       if (config) {
         worked = await processWhatsAppJob({
           claim: claimWhatsAppJob,
-          process: processWhatsAppCommand,
+          process: job => processWhatsAppCommand(job, photoReader(config)),
           send: (phone, reply) => sendWhatsAppReply(config, phone, reply),
           async delivered(id) {
             await pool.query("UPDATE whatsapp_messages SET state = 'delivered', updated_at = now() WHERE id = $1", [id]);

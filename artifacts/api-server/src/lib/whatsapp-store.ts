@@ -2,6 +2,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { pool } from "@workspace/db";
 import { normalizeIngredient, parseShoppingCommand, WHATSAPP_HELP, type IncomingWhatsAppMessage } from "./whatsapp";
 
+/**
+ * Reads the products of a photographed shopping list. Returns null when the
+ * photo cannot be read at all (unsupported format), so the user gets a hint
+ * instead of endless retries.
+ */
+export type ImageListReader = (mediaId: string) => Promise<string[] | null>;
+
 export const hashLinkCode = (code: string): string => createHash("sha256").update(code).digest("hex");
 
 export async function initializeWhatsApp(): Promise<void> {
@@ -31,6 +38,7 @@ export async function initializeWhatsApp(): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS whatsapp_messages_queue ON whatsapp_messages(state, updated_at);
+    ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_id text;
   `);
 }
 
@@ -49,8 +57,8 @@ export async function enqueueWhatsApp(messages: IncomingWhatsAppMessage[]): Prom
     await client.query("BEGIN");
     for (const message of messages) {
       await client.query(`
-        INSERT INTO whatsapp_messages(id, phone, body) VALUES ($1, $2, $3) ON CONFLICT(id) DO NOTHING
-      `, [message.id, message.phone, message.text]);
+        INSERT INTO whatsapp_messages(id, phone, body, media_id) VALUES ($1, $2, $3, $4) ON CONFLICT(id) DO NOTHING
+      `, [message.id, message.phone, message.text, message.mediaId ?? null]);
     }
     await client.query("COMMIT");
   } catch (error) {
@@ -65,6 +73,8 @@ export interface WhatsAppJob {
   id: string;
   phone: string;
   body: string;
+  /** Photo of a shopping list, until the job is processed. */
+  mediaId?: string | null;
   reply: string | null;
   attempts: number;
 }
@@ -88,12 +98,30 @@ export async function claimWhatsAppJob(): Promise<WhatsAppJob | undefined> {
         OR (state = 'processing' AND updated_at < now() - interval '1 minute')
       ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
     )
-    RETURNING id, phone, body, reply, attempts
+    RETURNING id, phone, body, media_id AS "mediaId", reply, attempts
   `);
   return rows[0];
 }
 
-export async function processWhatsAppCommand(job: WhatsAppJob): Promise<string> {
+/** Attempts before a photo that keeps failing to download or read gets an apology instead of a retry. */
+const IMAGE_ATTEMPTS = 3;
+
+async function readListPhoto(job: WhatsAppJob, readImage: ImageListReader | undefined): Promise<string[] | "unreadable" | "failed" | undefined> {
+  if (!job.mediaId || job.reply || !readImage) return undefined;
+  // Unlinked phones get the usual linking hint without downloading anything.
+  const { rowCount } = await pool.query("SELECT 1 FROM whatsapp_links WHERE phone = $1", [job.phone]);
+  if (!rowCount) return undefined;
+  try {
+    return await readImage(job.mediaId) ?? "unreadable";
+  } catch (error) {
+    if (job.attempts < IMAGE_ATTEMPTS) throw error;
+    return "failed";
+  }
+}
+
+export async function processWhatsAppCommand(job: WhatsAppJob, readImage?: ImageListReader): Promise<string> {
+  // Downloading and reading a photo takes seconds: do it before locking anything.
+  const photo = await readListPhoto(job, readImage);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -104,7 +132,12 @@ export async function processWhatsAppCommand(job: WhatsAppJob): Promise<string> 
       await client.query("COMMIT");
       return current.reply;
     }
-    const command = parseShoppingCommand(job.body);
+    const caption = parseShoppingCommand(job.body);
+    const command = job.mediaId
+      ? Array.isArray(photo)
+        ? { kind: "list" as const, ingredients: [...photo, ...(caption.kind === "list" ? caption.ingredients : [])] }
+        : { kind: "photo" as const, problem: photo }
+      : caption;
     let reply = WHATSAPP_HELP;
     if (command.kind === "link") {
       // Serialize link/unlink and ingredient writes for the same sender.
@@ -123,6 +156,11 @@ export async function processWhatsAppCommand(job: WhatsAppJob): Promise<string> 
           ? 'Cuenta vinculada. Ya puedes enviar "añade leche y huevos".'
           : "Código inválido o caducado. Genera uno nuevo en la web.";
       }
+    } else if (command.kind === "photo") {
+      const { rows: [link] } = await client.query("SELECT user_id FROM whatsapp_links WHERE phone = $1", [job.phone]);
+      if (!link) reply = "Vincula primero tu teléfono desde la sección WhatsApp de la lista de la compra en la web.";
+      else if (command.problem === "unreadable") reply = "No puedo leer ese tipo de archivo. Envía la lista como foto (JPG o PNG) o escribe «añade …».";
+      else reply = "No he podido leer la foto ahora mismo. Inténtalo de nuevo en un rato o escribe «añade …».";
     } else if (command.kind === "list") {
       const { rows: [link] } = await client.query<{ user_id: number }>(
         "SELECT user_id FROM whatsapp_links WHERE phone = $1 FOR UPDATE", [job.phone],
@@ -140,6 +178,10 @@ export async function processWhatsAppCommand(job: WhatsAppJob): Promise<string> 
           (rowCount ? added : existing).push(ingredient);
         }
         reply = [
+          job.mediaId && command.ingredients.length === 0
+            ? "No he encontrado productos en la foto. Prueba con una foto más cerca y con buena luz, o escribe «añade …»."
+            : "",
+          job.mediaId && command.ingredients.length > 0 ? "He leído tu lista." : "",
           added.length ? `Añadido a tu lista de la compra: ${added.join(", ")}.` : "",
           existing.length ? `Ya estaba en tus ingredientes de WhatsApp: ${existing.join(", ")}.` : "",
         ].filter(Boolean).join("\n");
@@ -147,7 +189,7 @@ export async function processWhatsAppCommand(job: WhatsAppJob): Promise<string> 
     }
     // Checkpoint the effect and its reply together, so retries cannot re-add removed items.
     await client.query(
-      "UPDATE whatsapp_messages SET reply = $2, body = '', state = 'sending', updated_at = now() WHERE id = $1",
+      "UPDATE whatsapp_messages SET reply = $2, body = '', media_id = NULL, state = 'sending', updated_at = now() WHERE id = $1",
       [job.id, reply],
     );
     await client.query("COMMIT");

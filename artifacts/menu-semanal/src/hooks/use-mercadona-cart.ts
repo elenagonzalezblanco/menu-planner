@@ -102,9 +102,14 @@ export async function createConnectorToken(userId: number, password: string): Pr
   return data.token;
 }
 
-/** `javascript:` bookmark that loads the connector on tienda.mercadona.es with this device's token. */
+/**
+ * `javascript:` bookmark that loads the connector on tienda.mercadona.es with
+ * this device's token. On any other site it only shows a hint, so the token is
+ * never handed to another page.
+ */
 export function bookmarkletFor(token: string): string {
-  const code = `(()=>{const s=document.createElement('script');s.src=${JSON.stringify(`${API_ORIGIN}/mercadona-connector.js`)}+'?t='+Date.now();` +
+  const code = `(()=>{if(location.hostname!=='tienda.mercadona.es'){alert('Abre tienda.mercadona.es, inicia sesión y vuelve a pulsar «Mi Cocina → Mercadona».');return;}` +
+    `const s=document.createElement('script');s.src=${JSON.stringify(`${API_ORIGIN}/mercadona-connector.js`)}+'?t='+Date.now();` +
     `s.dataset.api=${JSON.stringify(API_ORIGIN)};s.dataset.token=${JSON.stringify(token)};document.body.appendChild(s);})()`;
   return `javascript:${encodeURIComponent(code)}`;
 }

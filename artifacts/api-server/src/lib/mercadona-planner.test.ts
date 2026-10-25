@@ -62,7 +62,8 @@ test("usual quantity is the median, clamped to what was bought and at least one 
   assert.equal(usualQuantity([2, 2, 3]), 2);
   assert.equal(usualQuantity([1, 2]), 2);
   assert.equal(usualQuantity([]), 1);
-  assert.equal(usualQuantity([0.4]), 1);
+  assert.equal(usualQuantity([0.4]), 0.4);
+  assert.equal(usualQuantity([0.2, 0.4, 0.4, 0.6]), 0.4);
 });
 
 test("each order is paired with the latest revision of the menu saved before it", () => {

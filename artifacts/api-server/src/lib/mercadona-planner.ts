@@ -181,11 +181,17 @@ function median(values: number[]): number {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-/** Median clamped to what she has actually bought, rounded half up, never below one unit. */
+/**
+ * Units: median rounded half up, never below one. Products sold by weight
+ * (fractional kg) keep a quantity she actually bought, so it stays a valid step.
+ */
 export function usualQuantity(quantities: number[]): number {
   if (quantities.length === 0) return 1;
-  const value = Math.min(Math.max(median(quantities), Math.min(...quantities)), Math.max(...quantities));
-  return Math.max(1, Math.floor(value + 0.5));
+  if (quantities.some(quantity => !Number.isInteger(quantity))) {
+    const sorted = [...quantities].sort((x, y) => x - y);
+    return sorted[Math.floor((sorted.length - 1) / 2)];
+  }
+  return Math.max(1, Math.floor(median(quantities) + 0.5));
 }
 
 function plural(count: number, singular: string, pluralForm: string): string {

@@ -24,8 +24,10 @@ bookmarks bar. With your session open on tienda.mercadona.es, click it:
 
 1. It reads the delivered orders Mi Cocina has not seen yet (last 12 months, at
    most 40 per run, a few seconds apart so Mercadona does not block the session).
-2. The server pairs every saved weekly menu with the order delivered up to five
-   days later and, for each ingredient of the current menu (plus WhatsApp and
+2. The server pairs every saved weekly menu (and the menu of every cart it
+   computed, since generating a new menu replaces the previous one) with the
+   order delivered up to five days later and, for each ingredient of the
+   current menu (plus WhatsApp and
    manual additions), chooses the product you bought in those weeks and its
    median quantity. Ingredients you never buy although they were on the menu
    (≥ 3 weeks, bought < 30 %) are listed as "probably at home" instead.
@@ -306,6 +308,7 @@ Database layer with Drizzle ORM and PostgreSQL.
 | `mercadona_connectors` | Hashed per-device tokens of the Mercadona bookmark |
 | `mercadona_orders` | Delivered Mercadona orders (lines with product and quantity) used to learn habits |
 | `mercadona_cart_plans` | Recent computed carts and what was added to Mercadona |
+| `mercadona_menu_snapshots` | Recipes of each menu a cart was computed for, paired later with the order |
 
 ### `lib/integrations-openai-ai-server`
 

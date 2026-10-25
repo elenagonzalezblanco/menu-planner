@@ -16,6 +16,9 @@
   const config = Object.assign({}, window.__MICOCINA_CONFIG || {}, script ? script.dataset : {});
   const API = (config.api || "https://micocina.azurewebsites.net").replace(/\/+$/, "");
   const TOKEN = config.token || "";
+  // Do not leave the access token readable in the page.
+  if (script) script.remove();
+  delete window.__MICOCINA_CONFIG;
   const SEARCH_URL = "https://tornillos.mercadona.es/search";
   const DAY_MS = 24 * 60 * 60 * 1000;
   const HISTORY_DAYS = 365;
@@ -281,7 +284,6 @@
       const cart = await mercadona(`/customers/${user.uuid}/cart/?${query()}`);
       const lines = cartLines(cart).filter(line => !remove.has(line.product_id));
       const byId = new Map(lines.map(line => [line.product_id, line]));
-      const before = new Map(lines.map(line => [line.product_id, line.quantity]));
       for (const item of items) {
         const existing = byId.get(item.productId);
         if (existing) existing.quantity = Math.max(existing.quantity, item.quantity);
@@ -296,7 +298,7 @@
           method: "PUT",
           body: JSON.stringify({ id: cart.id, version: cart.version, lines }),
         });
-        return { updated, before };
+        return { updated };
       } catch (error) {
         lastError = error;
         if (error instanceof BlockedError || (error.status && error.status !== 409 && error.status !== 400)) throw error;
@@ -352,14 +354,14 @@
       button.addEventListener("click", async () => {
         button.disabled = true;
         try {
-          await putItems(user, [{ productId: skip.productId, quantity: Math.max(1, skip.quantity || 1) }]);
+          await putItems(user, [{ productId: skip.productId, quantity: skip.quantity > 0 ? skip.quantity : 1 }]);
           button.textContent = "Añadido ✓";
         } catch {
           button.textContent = "Error";
           button.disabled = false;
         }
       });
-      return itemRow(skip.quantity || 1, skip.productName, `${skip.ingredients.join(", ")} · ${skip.reason}`, null, button);
+      return itemRow(skip.quantity > 0 ? skip.quantity : 1, skip.productName, `${skip.ingredients.join(", ")} · ${skip.reason}`, null, button);
     }));
     const reload = element("button", { className: "primary", textContent: "Ver el carro" });
     reload.addEventListener("click", () => location.reload());
@@ -381,7 +383,10 @@
     const ready = items.filter(item => item.productId && item.quantity > 0);
     const missing = items.filter(item => !item.productId);
     ui.step(`Añadiendo ${ready.length} productos al carro…`);
-    let { updated, before } = await addToCart(user, ready, ui);
+    // Snapshot before any write: retries and the one-by-one fallback must not turn new products into "already there".
+    const initial = await mercadona(`/customers/${user.uuid}/cart/?${query()}`);
+    const before = new Map(cartLines(initial).map(line => [line.product_id, line.quantity]));
+    let { updated } = await addToCart(user, ready, ui);
 
     // Products she usually buys can be out of stock or out of season: offer the closest available one.
     let lines = new Map((updated.lines || []).map(line => [lineProductId(line), line]));

@@ -42,7 +42,41 @@ export async function initializeMercadona(): Promise<void> {
       applied_at timestamptz
     );
     CREATE INDEX IF NOT EXISTS mercadona_cart_plans_user ON mercadona_cart_plans(user_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS mercadona_menu_snapshots (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipe_ids integer[] NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS mercadona_menu_snapshots_user ON mercadona_menu_snapshots(user_id, created_at DESC);
   `);
+}
+
+// ── Menu snapshots ───────────────────────────────────────────────────────────
+// Generating a new weekly menu deletes the previous one, so every cart plan
+// remembers the menu it was computed for: next week it is paired with the
+// order that was placed from it.
+
+export async function recordMenuSnapshot(userId: number, recipeIds: number[]): Promise<void> {
+  if (recipeIds.length === 0) return;
+  const { rows: [latest] } = await pool.query<{ id: number; recipe_ids: number[]; created_at: Date }>(
+    "SELECT id, recipe_ids, created_at FROM mercadona_menu_snapshots WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1", [userId]);
+  const sameMenu = latest && latest.recipe_ids.length === recipeIds.length && latest.recipe_ids.every((id, index) => id === recipeIds[index]);
+  // Same menu within two days is the same shopping trip; a repeated menu next week is a new week.
+  if (sameMenu && Date.now() - latest.created_at.getTime() < 2 * 24 * 60 * 60 * 1000) {
+    await pool.query("UPDATE mercadona_menu_snapshots SET created_at = now() WHERE id = $1", [latest.id]);
+  } else {
+    await pool.query("INSERT INTO mercadona_menu_snapshots(user_id, recipe_ids) VALUES ($1, $2)", [userId, recipeIds]);
+  }
+  await pool.query(
+    "DELETE FROM mercadona_menu_snapshots WHERE user_id = $1 AND created_at < now() - ($2 || ' days')::interval",
+    [userId, String(HISTORY_DAYS + 30)]);
+}
+
+export async function loadMenuSnapshots(userId: number): Promise<Array<{ savedAt: string; recipeIds: number[] }>> {
+  const { rows } = await pool.query<{ recipe_ids: number[]; created_at: Date }>(
+    "SELECT recipe_ids, created_at FROM mercadona_menu_snapshots WHERE user_id = $1 ORDER BY created_at", [userId]);
+  return rows.map(row => ({ savedAt: row.created_at.toISOString(), recipeIds: row.recipe_ids }));
 }
 
 // ── Connector token ──────────────────────────────────────────────────────────
@@ -160,6 +194,7 @@ export async function loadPurchaseHistory(userId: number): Promise<PurchaseOrder
 export async function deleteHistory(userId: number): Promise<void> {
   await pool.query("DELETE FROM mercadona_orders WHERE user_id = $1", [userId]);
   await pool.query("DELETE FROM mercadona_cart_plans WHERE user_id = $1", [userId]);
+  await pool.query("DELETE FROM mercadona_menu_snapshots WHERE user_id = $1", [userId]);
 }
 
 // ── Cart plans ───────────────────────────────────────────────────────────────

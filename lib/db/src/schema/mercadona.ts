@@ -42,3 +42,10 @@ export const mercadonaCartPlansTable = pgTable("mercadona_cart_plans", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   appliedAt: timestamp("applied_at", { withTimezone: true }),
 }, table => [index("mercadona_cart_plans_user").on(table.userId, table.createdAt)]);
+
+export const mercadonaMenuSnapshotsTable = pgTable("mercadona_menu_snapshots", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  recipeIds: integer("recipe_ids").array().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [index("mercadona_menu_snapshots_user").on(table.userId, table.createdAt)]);

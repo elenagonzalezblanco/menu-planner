@@ -1,7 +1,9 @@
 import { db, recipesTable, savedMenusTable, weeklyMenusTable, type WeeklyMenuDay } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { buildCartPlan, type MenuSnapshot } from "./mercadona-planner";
-import { latestPlan, loadPurchaseHistory, savePlan, type StoredCartPlan } from "./mercadona-store";
+import {
+  latestPlan, loadMenuSnapshots, loadPurchaseHistory, recordMenuSnapshot, savePlan, type StoredCartPlan,
+} from "./mercadona-store";
 import { listWhatsAppIngredients } from "./whatsapp-store";
 
 const SLOTS = ["primero", "segundo", "primero2", "segundo2"] as const;
@@ -54,9 +56,12 @@ export async function computeCartPlan(
   const menu = options.menuId ? menus.find(candidate => candidate.id === options.menuId) : menus[0];
   if (options.menuId && !menu) throw new MenuNotFoundError("Menu not found");
 
-  const [recipes, saved, orders, whatsapp] = await Promise.all([
+  const currentRecipeIds = menu ? menuRecipeIds(menu.days) : [];
+  await recordMenuSnapshot(userId, currentRecipeIds);
+  const [recipes, saved, snapshots, orders, whatsapp] = await Promise.all([
     db.select().from(recipesTable).where(eq(recipesTable.userId, userId)),
     db.select().from(savedMenusTable).where(eq(savedMenusTable.userId, userId)),
+    loadMenuSnapshots(userId),
     loadPurchaseHistory(userId),
     listWhatsAppIngredients(userId),
   ]);
@@ -70,9 +75,10 @@ export async function computeCartPlan(
   const pastMenus: MenuSnapshot[] = [
     ...saved.map(entry => ({ savedAt: entry.savedAt.toISOString(), recipeIds: menuRecipeIds(entry.days) })),
     ...menus.map(entry => ({ savedAt: entry.createdAt.toISOString(), recipeIds: menuRecipeIds(entry.days) })),
+    ...snapshots,
   ];
   const plan = buildCartPlan({
-    menuRecipeIds: menu ? menuRecipeIds(menu.days) : [],
+    menuRecipeIds: currentRecipeIds,
     recipes: recipes.map(recipe => ({ id: recipe.id, name: recipe.name, ingredients: recipe.ingredients ?? [] })),
     pastMenus,
     orders,

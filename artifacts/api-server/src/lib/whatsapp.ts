@@ -142,7 +142,8 @@ function isMetaMediaUrl(value: unknown): value is string {
 }
 
 export async function downloadWhatsAppMedia(config: WhatsAppConfig, mediaId: string): Promise<{ data: Buffer; mimeType: string }> {
-  const headers = { Authorization: `Bearer ${config.accessToken}` };
+  // Meta's media CDN rejects clients without a browser-like User-Agent.
+  const headers = { Authorization: `Bearer ${config.accessToken}`, "User-Agent": "Mozilla/5.0 (compatible; MiCocina/1.0)" };
   const meta = await fetch(`https://graph.facebook.com/${config.graphVersion}/${encodeURIComponent(mediaId)}`, {
     headers, signal: AbortSignal.timeout(15_000),
   });

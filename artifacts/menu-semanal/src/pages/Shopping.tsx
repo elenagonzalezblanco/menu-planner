@@ -77,7 +77,7 @@ export default function ShoppingPage() {
             size="lg"
           >
             <Store className="w-5 h-5 mr-2" />
-            Buscar en Mercadona
+            Cesta de Mercadona
           </Button>
           <Button
             onClick={() => setLocation("/carrefour")}

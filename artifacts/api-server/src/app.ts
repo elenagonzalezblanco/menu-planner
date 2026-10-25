@@ -45,6 +45,14 @@ const ALLOWED_ORIGINS = [
 if (process.env.NODE_ENV !== "production") {
   ALLOWED_ORIGINS.push("http://localhost:5173", "http://localhost:3000");
 }
+// The Mercadona bookmarklet runs on tienda.mercadona.es and uploads whole orders.
+app.use("/api/mercadona-connector", cors({
+  origin: [...ALLOWED_ORIGINS, "https://tienda.mercadona.es"],
+  methods: ["GET", "POST", "DELETE"],
+  allowedHeaders: ["Authorization", "Content-Type"],
+  maxAge: 600,
+}));
+app.use("/api/mercadona-connector", express.json({ limit: "2mb" }));
 app.use(cors({
   origin: ALLOWED_ORIGINS,
   credentials: true,

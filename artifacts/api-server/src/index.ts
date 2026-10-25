@@ -5,6 +5,7 @@ import { pool } from "@workspace/db";
 import { initializeEmailOutbox, startEmailWorker } from "./lib/email-service";
 import { startEmailBootstrap } from "./lib/email-bootstrap";
 import { initializeWhatsAppService, startWhatsAppWorker } from "./lib/whatsapp-service";
+import { initializeMercadona } from "./lib/mercadona-store";
 
 const rawPort = process.env["PORT"];
 
@@ -113,6 +114,7 @@ app.listen(port, () => {
     async initializeOutbox() {
       await initializeEmailOutbox();
       await initializeWhatsAppService();
+      await initializeMercadona();
     },
     startWorker() {
       const stopEmail = startEmailWorker();

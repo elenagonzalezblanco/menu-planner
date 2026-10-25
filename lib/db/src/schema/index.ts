@@ -6,3 +6,4 @@ export * from "./conversations";
 export * from "./messages";
 export * from "./email-deliveries";
 export * from "./whatsapp";
+export * from "./mercadona";

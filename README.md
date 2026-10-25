@@ -10,10 +10,39 @@ A full-stack web application for weekly meal planning powered by a conversationa
 - **Drag & Drop** — Visually rearrange meals across days and slots.
 - **Shopping List** — Auto-consolidated ingredient list generated from the active menu, grouped by normalized ingredient with recipe attribution.
 - **WhatsApp Shopping** — Link a phone and send text commands to add ingredients to the same shopping list, with durable processing and WhatsApp confirmations (requires Meta WhatsApp Business Cloud API configuration).
-- **Supermarket Search** — Open every shopping-list ingredient directly in Mercadona or Carrefour. The backend also retains Mercadona cart automation support.
+- **Supermarket Search** — Open every shopping-list ingredient directly in Mercadona or Carrefour.
+- **Mercadona Automatic Cart** — Learns from your own Mercadona orders which product and how many units you buy for each ingredient, and fills your Mercadona cart with this week's menu in one click. You always review the cart and checkout yourself.
 - **PDF Export** — Export menus as A4 landscape table-format PDFs using a custom pure-Node generator (no external dependencies).
 - **Email** — Send menus via Azure Communication Services with PDF attachments. Includes welcome emails on registration.
 - **Multi-User** — Per-user recipes, menus, AI settings, and credentials. Password authentication with email-based reset tokens.
+
+## Mercadona automatic cart
+
+Open **Mercadona** (or **Lista de Compra → Cesta de Mercadona**), confirm your Mi
+Cocina password once and drag the **Mi Cocina → Mercadona** bookmark to the
+bookmarks bar. With your session open on tienda.mercadona.es, click it:
+
+1. It reads the delivered orders Mi Cocina has not seen yet (last 12 months, at
+   most 40 per run, a few seconds apart so Mercadona does not block the session).
+2. The server pairs every saved weekly menu with the order delivered up to five
+   days later and, for each ingredient of the current menu (plus WhatsApp and
+   manual additions), chooses the product you bought in those weeks and its
+   median quantity. Ingredients you never buy although they were on the menu
+   (≥ 3 weeks, bought < 30 %) are listed as "probably at home" instead.
+   Ingredients without history are searched in Mercadona's catalogue,
+   preferring products you have bought before.
+3. Products are added to the Mercadona cart. Products already in the cart keep
+   the larger quantity (nothing is summed twice); unavailable products are
+   replaced by the closest available one. Nothing is ordered or paid: review the
+   cart and use **Añadir al pedido en curso** or **Tramitar nuevo pedido**.
+
+The bookmark runs inside your own Mercadona session, so Mercadona credentials
+never reach Mi Cocina. It carries a per-device connector token (stored hashed;
+up to five per user) that is required to read or write purchase history.
+**Desconectar** revokes every token and **Borrar historial** deletes the stored
+orders and plans. The algorithm lives in
+`artifacts/api-server/src/lib/mercadona-planner.ts`
+(`pnpm --filter @workspace/api-server run test:mercadona`).
 
 ## WhatsApp → shopping list
 
@@ -246,12 +275,12 @@ React + Vite frontend with shadcn/ui and Tailwind CSS.
 - **Data**: React Query with hooks generated from `@workspace/api-client-react`
 - **Interaction**: Drag & drop menu editing, conversational AI chat
 
-From **Lista de Compra**, choose **Buscar en Mercadona** or **Buscar en Carrefour**.
+From **Lista de Compra**, choose **Cesta de Mercadona** or **Buscar en Carrefour**.
 Both pages include menu ingredients and manual additions. Each ingredient opens
 the supermarket's search in a new tab; choose products and complete checkout on
-the supermarket website. These pages do not add products to a cart automatically
-or store supermarket credentials. Both supermarkets are also available in the
-desktop and mobile navigation.
+the supermarket website. The Mercadona page also offers the automatic cart
+described above; neither page stores supermarket credentials. Both supermarkets
+are also available in the desktop and mobile navigation.
 
 ### `lib/api-spec`
 
@@ -273,7 +302,10 @@ Database layer with Drizzle ORM and PostgreSQL.
 | `saved_menus` | Archived/saved menus with labels |
 | `conversations` | Chat conversation history |
 | `messages` | Individual chat messages |
-| `mercadona_settings` | Mercadona credentials and session tokens |
+| `mercadona_settings` | Legacy Mercadona credentials and session tokens (unused by the UI) |
+| `mercadona_connectors` | Hashed per-device tokens of the Mercadona bookmark |
+| `mercadona_orders` | Delivered Mercadona orders (lines with product and quantity) used to learn habits |
+| `mercadona_cart_plans` | Recent computed carts and what was added to Mercadona |
 
 ### `lib/integrations-openai-ai-server`
 
@@ -304,7 +336,15 @@ React hooks for OpenAI integration, including audio hooks.
 | `GET` | `/api/mercadona/credentials` | Check Mercadona credentials |
 | `POST` | `/api/mercadona/credentials` | Save credentials |
 | `DELETE` | `/api/mercadona/credentials` | Delete credentials |
-| `POST` | `/api/mercadona/automate` | Run Mercadona cart automation |
+| `POST` | `/api/mercadona/automate` | Legacy server-side Mercadona automation |
+| `POST` | `/api/mercadona/connector` | Create a bookmark token (requires the account password) |
+| `GET` | `/api/mercadona-connector/status` | History summary and latest cart (Bearer connector token) |
+| `GET` | `/api/mercadona-connector/state` | Order ids already synchronized (bookmark) |
+| `POST` | `/api/mercadona-connector/orders` | Store delivered orders read by the bookmark |
+| `POST` | `/api/mercadona-connector/plan` | Compute the cart for the current menu |
+| `POST` | `/api/mercadona-connector/plan/:id/result` | Record what was added to the Mercadona cart |
+| `DELETE` | `/api/mercadona-connector/history` | Delete stored orders and carts |
+| `POST` | `/api/mercadona-connector/disconnect` | Revoke every bookmark token |
 | `POST` | `/api/saved-menus` | Save/archive a menu |
 | `GET` | `/api/saved-menus` | List saved menus |
 | `GET` | `/api/saved-menus/:id/pdf` | Export saved menu as PDF |
@@ -388,9 +428,9 @@ pnpm --filter @workspace/db run push
 
 1. User generates a shopping list from the active menu
 2. Ingredients are consolidated and normalized across all recipes
-3. User triggers Mercadona automation with saved credentials
-4. Playwright searches Mercadona's product API for each ingredient
-5. Matching products are added to the online cart automatically
+3. On tienda.mercadona.es the **Mi Cocina → Mercadona** bookmark syncs new orders
+4. The server learns product and quantity per ingredient from past menus and orders
+5. The bookmark adds the products to the Mercadona cart for the user to review
 
 ## Deployment
 

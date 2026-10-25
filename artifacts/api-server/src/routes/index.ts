@@ -11,6 +11,7 @@ import aiChatRouter from "./ai-chat";
 import savedMenusRouter from "./saved-menus";
 import { requireUser } from "../middlewares/auth";
 import whatsappRouter from "./whatsapp";
+import { connectorRouter, mercadonaAccountRouter } from "./mercadona-connector";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,8 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use(usersRouter);
 router.use(publicRouter);
+// Mercadona bookmarklet: authenticated with its own connector token
+router.use("/mercadona-connector", connectorRouter);
 
 // Protected routes (require X-User-Id header)
 router.use(requireUser as any);
@@ -26,6 +29,7 @@ router.use(recipesRouter);
 router.use(menusRouter);
 router.use(shoppingRouter);
 router.use(mercadonaRouter);
+router.use(mercadonaAccountRouter);
 router.use(emailRouter);
 router.use(aiChatRouter);
 router.use(savedMenusRouter);

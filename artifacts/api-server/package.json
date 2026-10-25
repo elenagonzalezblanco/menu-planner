@@ -8,7 +8,8 @@
     "build": "tsx ./build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:email": "tsx --test src/lib/email-*.test.ts",
-    "test:whatsapp": "tsx --test src/lib/whatsapp*.test.ts"
+    "test:whatsapp": "tsx --test src/lib/whatsapp*.test.ts",
+    "test:mercadona": "tsx --test src/lib/mercadona-*.test.ts"
   },
   "dependencies": {
     "@azure/communication-email": "^1.1.0",

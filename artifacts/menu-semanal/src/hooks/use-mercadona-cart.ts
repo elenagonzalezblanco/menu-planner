@@ -131,3 +131,51 @@ export function useConnectorAction(token: string | null) {
     onSuccess: () => client.invalidateQueries({ queryKey: ["mercadona-connector-status", token] }),
   });
 }
+
+// ── «Rellena la cesta automática» (shopping list) ────────────────────────────
+
+export type CartRequestStatus = "pending" | "running" | "done" | "error" | "expired";
+
+export interface CartRequestState {
+  request: {
+    id: number;
+    status: CartRequestStatus;
+    message: string | null;
+    summary: { products: number; units: number; total: string | null } | null;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+  } | null;
+  /** Whether a Mercadona tab is watching for requests (Scout's browser). */
+  watcherOnline: boolean;
+}
+
+async function cartRequestCall(userId: number, method: "GET" | "POST"): Promise<CartRequestState> {
+  const response = await fetch(`${API_URL}/api/mercadona/cart-requests${method === "GET" ? "/latest" : ""}`, {
+    method,
+    headers: { "Content-Type": "application/json", "X-User-Id": String(userId) },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error ?? "No se pudo conectar con el servidor.");
+  return data as CartRequestState;
+}
+
+export function useCartRequest(userId: number | undefined) {
+  const client = useQueryClient();
+  const queryKey = ["mercadona-cart-request", userId];
+  const query = useQuery({
+    queryKey,
+    enabled: !!userId,
+    queryFn: () => cartRequestCall(userId!, "GET"),
+    refetchInterval: current => {
+      const status = current.state.data?.request?.status;
+      return status === "pending" || status === "running" ? 3_000 : 60_000;
+    },
+  });
+  const start = useMutation({
+    mutationFn: () => cartRequestCall(userId!, "POST"),
+    onSuccess: data => client.setQueryData(queryKey, data),
+  });
+  return { ...query, start };
+}

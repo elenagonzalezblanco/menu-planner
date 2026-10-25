@@ -9,6 +9,9 @@ import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { WhatsAppSettings } from "@/components/WhatsAppSettings";
 import { useWhatsAppIngredients } from "@/hooks/use-whatsapp";
+import { useUser } from "@/contexts/UserContext";
+import { useCartRequest } from "@/hooks/use-mercadona-cart";
+import { AutoCartButton, AutoCartStatus } from "@/components/AutoCartRequest";
 
 export default function ShoppingPage() {
   const { data: menus = [] } = useMenus();
@@ -21,6 +24,8 @@ export default function ShoppingPage() {
   const [newIngredient, setNewIngredient] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const whatsapp = useWhatsAppIngredients();
+  const { currentUser } = useUser();
+  const cartRequest = useCartRequest(currentUser?.id);
 
   const toggleItem = (ingredient: string) => {
     const next = new Set(checkedItems);
@@ -60,6 +65,7 @@ export default function ShoppingPage() {
           <p className="text-muted-foreground mt-2 text-lg">Ingredientes consolidados para tu semana</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <AutoCartButton cart={cartRequest} />
           <Button
             onClick={sendShoppingByEmail}
             type="button"
@@ -90,6 +96,7 @@ export default function ShoppingPage() {
         </div>
       </div>
 
+      <AutoCartStatus cart={cartRequest} />
       <WhatsAppSettings />
       {!latestMenu && <p className="text-sm text-muted-foreground">Puedes añadir productos desde WhatsApp sin generar un menú.</p>}
       {(isError || whatsapp.isError) && <p role="alert" className="text-destructive">No se pudo actualizar la lista. Comprueba la conexión y vuelve a intentarlo.</p>}

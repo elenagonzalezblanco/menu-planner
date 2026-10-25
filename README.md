@@ -38,6 +38,14 @@ bookmarks bar. With your session open on tienda.mercadona.es, click it:
    replaced by the closest available one. Nothing is ordered or paid: review the
    cart and use **Añadir al pedido en curso** or **Tramitar nuevo pedido**.
 
+**Rellena la cesta automática** (Lista de Compra) does the same without the
+bookmark: the app queues a request and a connector left watching in a
+logged-in tienda.mercadona.es tab (`data-mode="watch"`, kept open by the owner's
+Scout assistant) claims it within ~15 s, fills the cart and reports the result
+back to the shopping list. Mercadona rejects these requests when they come from
+a server ("uso indebido"), which is why the work always happens in a browser
+with your own session. Requests nobody picks up expire after 15 minutes.
+
 The bookmark runs inside your own Mercadona session, so Mercadona credentials
 never reach Mi Cocina. It carries a per-device connector token (stored hashed;
 up to five per user) that is required to read or write purchase history.
@@ -309,6 +317,7 @@ Database layer with Drizzle ORM and PostgreSQL.
 | `mercadona_orders` | Delivered Mercadona orders (lines with product and quantity) used to learn habits |
 | `mercadona_cart_plans` | Recent computed carts and what was added to Mercadona |
 | `mercadona_menu_snapshots` | Recipes of each menu a cart was computed for, paired later with the order |
+| `mercadona_cart_requests` | «Rellena la cesta automática» requests and their outcome |
 
 ### `lib/integrations-openai-ai-server`
 
@@ -346,6 +355,10 @@ React hooks for OpenAI integration, including audio hooks.
 | `POST` | `/api/mercadona-connector/orders` | Store delivered orders read by the bookmark |
 | `POST` | `/api/mercadona-connector/plan` | Compute the cart for the current menu |
 | `POST` | `/api/mercadona-connector/plan/:id/result` | Record what was added to the Mercadona cart |
+| `POST` | `/api/mercadona/cart-requests` | «Rellena la cesta automática»: queue a cart fill |
+| `GET` | `/api/mercadona/cart-requests/latest` | Progress of the last cart fill and whether a watcher is online |
+| `POST` | `/api/mercadona-connector/requests/claim` | Watching connector takes the next pending fill |
+| `POST` | `/api/mercadona-connector/requests/:id/finish` | Watching connector reports the outcome |
 | `DELETE` | `/api/mercadona-connector/history` | Delete stored orders and carts |
 | `POST` | `/api/mercadona-connector/disconnect` | Revoke every bookmark token |
 | `POST` | `/api/saved-menus` | Save/archive a menu |

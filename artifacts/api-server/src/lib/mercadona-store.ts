@@ -49,7 +49,142 @@ export async function initializeMercadona(): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS mercadona_menu_snapshots_user ON mercadona_menu_snapshots(user_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS mercadona_cart_requests (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status text NOT NULL DEFAULT 'pending',
+      message text,
+      summary jsonb,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      started_at timestamptz,
+      finished_at timestamptz
+    );
+    CREATE INDEX IF NOT EXISTS mercadona_cart_requests_user ON mercadona_cart_requests(user_id, created_at DESC);
   `);
+}
+
+// ── «Rellena la cesta automática» requests ───────────────────────────────────
+// The app cannot reach Mercadona, so the button only queues a request. A
+// connector left watching inside a logged-in tienda.mercadona.es tab claims it
+// and fills the cart there.
+
+/** A request nobody claims within this time is expired rather than filled hours later. */
+export const CART_REQUEST_TTL_MINUTES = 15;
+/** A watching connector polls every few seconds; silence for this long means it is offline. */
+const WATCHER_ONLINE_SECONDS = 120;
+
+export interface CartRequest {
+  id: number;
+  status: "pending" | "running" | "done" | "error" | "expired";
+  message: string | null;
+  summary: { products: number; units: number; total: string | null } | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+interface CartRequestRow {
+  id: number;
+  status: CartRequest["status"];
+  message: string | null;
+  summary: CartRequest["summary"];
+  created_at: Date;
+  started_at: Date | null;
+  finished_at: Date | null;
+}
+
+const toCartRequest = (row: CartRequestRow): CartRequest => ({
+  id: row.id,
+  status: row.status,
+  message: row.message,
+  summary: row.summary,
+  createdAt: row.created_at.toISOString(),
+  startedAt: row.started_at?.toISOString() ?? null,
+  finishedAt: row.finished_at?.toISOString() ?? null,
+});
+
+async function expireCartRequests(userId: number): Promise<void> {
+  await pool.query(`
+    UPDATE mercadona_cart_requests SET status = 'expired', finished_at = now(),
+      message = 'Nadie la recogió a tiempo: el ordenador con Scout estaba apagado o sin conectar.'
+    WHERE user_id = $1 AND status = 'pending' AND created_at < now() - ($2 || ' minutes')::interval
+  `, [userId, String(CART_REQUEST_TTL_MINUTES)]);
+  await pool.query(`
+    UPDATE mercadona_cart_requests SET status = 'error', finished_at = now(),
+      message = 'El llenado se interrumpió. Vuelve a pulsar el botón.'
+    WHERE user_id = $1 AND status = 'running' AND started_at < now() - interval '10 minutes'
+  `, [userId]);
+}
+
+export async function watcherOnline(userId: number): Promise<boolean> {
+  const { rows: [row] } = await pool.query<{ online: boolean }>(`
+    SELECT coalesce(max(last_used_at) > now() - ($2 || ' seconds')::interval, false) AS online
+    FROM mercadona_connectors WHERE user_id = $1
+  `, [userId, String(WATCHER_ONLINE_SECONDS)]);
+  return row?.online ?? false;
+}
+
+/** Reuses an open request so repeated clicks do not fill the cart twice. */
+export async function requestCartFill(userId: number): Promise<CartRequest> {
+  await expireCartRequests(userId);
+  const { rows: [open] } = await pool.query<CartRequestRow>(`
+    SELECT * FROM mercadona_cart_requests WHERE user_id = $1 AND status IN ('pending', 'running')
+    ORDER BY created_at DESC LIMIT 1
+  `, [userId]);
+  if (open) return toCartRequest(open);
+  const { rows: [created] } = await pool.query<CartRequestRow>(
+    "INSERT INTO mercadona_cart_requests(user_id) VALUES ($1) RETURNING *", [userId]);
+  await pool.query(`
+    DELETE FROM mercadona_cart_requests WHERE user_id = $1 AND id NOT IN (
+      SELECT id FROM mercadona_cart_requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20
+    )
+  `, [userId]);
+  return toCartRequest(created);
+}
+
+export async function latestCartRequest(userId: number): Promise<CartRequest | null> {
+  await expireCartRequests(userId);
+  const { rows: [row] } = await pool.query<CartRequestRow>(
+    "SELECT * FROM mercadona_cart_requests WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1", [userId]);
+  return row ? toCartRequest(row) : null;
+}
+
+export async function claimCartRequest(userId: number): Promise<CartRequest | null> {
+  await expireCartRequests(userId);
+  const { rows: [row] } = await pool.query<CartRequestRow>(`
+    UPDATE mercadona_cart_requests SET status = 'running', started_at = now()
+    WHERE id = (
+      SELECT id FROM mercadona_cart_requests WHERE user_id = $1 AND status = 'pending'
+      ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED
+    )
+    RETURNING *
+  `, [userId]);
+  return row ? toCartRequest(row) : null;
+}
+
+export async function finishCartRequest(
+  userId: number, requestId: number, outcome: { status: "done" | "error"; message: string | null; summary: CartRequest["summary"] },
+): Promise<boolean> {
+  const { rowCount } = await pool.query(`
+    UPDATE mercadona_cart_requests SET status = $3, message = $4, summary = $5, finished_at = now()
+    WHERE id = $1 AND user_id = $2 AND status = 'running'
+  `, [requestId, userId, outcome.status, outcome.message, outcome.summary ? JSON.stringify(outcome.summary) : null]);
+  return (rowCount ?? 0) > 0;
+}
+
+export function parseCartRequestOutcome(body: unknown): { status: "done" | "error"; message: string | null; summary: CartRequest["summary"] } | null {
+  const raw = body as Record<string, unknown> | null;
+  if (!raw || (raw.status !== "done" && raw.status !== "error")) return null;
+  const summary = raw.summary as Record<string, unknown> | null | undefined;
+  return {
+    status: raw.status,
+    message: text(String(raw.message ?? ""), 500),
+    summary: summary && typeof summary === "object" ? {
+      products: Math.max(0, Math.floor(Number(summary.products) || 0)),
+      units: Math.max(0, Number(summary.units) || 0),
+      total: text(String(summary.total ?? ""), 20),
+    } : null,
+  };
 }
 
 // ── Menu snapshots ───────────────────────────────────────────────────────────
@@ -195,6 +330,7 @@ export async function deleteHistory(userId: number): Promise<void> {
   await pool.query("DELETE FROM mercadona_orders WHERE user_id = $1", [userId]);
   await pool.query("DELETE FROM mercadona_cart_plans WHERE user_id = $1", [userId]);
   await pool.query("DELETE FROM mercadona_menu_snapshots WHERE user_id = $1", [userId]);
+  await pool.query("DELETE FROM mercadona_cart_requests WHERE user_id = $1", [userId]);
 }
 
 // ── Cart plans ───────────────────────────────────────────────────────────────

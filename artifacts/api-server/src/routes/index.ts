@@ -11,7 +11,7 @@ import aiChatRouter from "./ai-chat";
 import savedMenusRouter from "./saved-menus";
 import { requireUser } from "../middlewares/auth";
 import whatsappRouter from "./whatsapp";
-import { connectorRouter, mercadonaAccountRouter } from "./mercadona-connector";
+import { connectorRouter, mercadonaAccountRouter, mercadonaCartRequestRouter } from "./mercadona-connector";
 
 const router: IRouter = Router();
 
@@ -30,6 +30,7 @@ router.use(menusRouter);
 router.use(shoppingRouter);
 router.use(mercadonaRouter);
 router.use(mercadonaAccountRouter);
+router.use(mercadonaCartRequestRouter);
 router.use(emailRouter);
 router.use(aiChatRouter);
 router.use(savedMenusRouter);

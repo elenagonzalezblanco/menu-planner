@@ -4,8 +4,9 @@ import { pool } from "@workspace/db";
 import type { AuthenticatedRequest } from "../middlewares/auth";
 import { computeCartPlan, MenuNotFoundError } from "../lib/mercadona-cart";
 import {
-  connectorStatus, createConnectorToken, deleteHistory, parsePlanResult, parseUploadedOrders, recordPlanResult,
-  revokeConnectorTokens, storeOrders, syncedOrderIds, userForConnectorToken,
+  claimCartRequest, connectorStatus, createConnectorToken, deleteHistory, finishCartRequest, latestCartRequest,
+  parseCartRequestOutcome, parsePlanResult, parseUploadedOrders, recordPlanResult, requestCartFill,
+  revokeConnectorTokens, storeOrders, syncedOrderIds, userForConnectorToken, watcherOnline,
 } from "../lib/mercadona-store";
 
 type ConnectorRequest = Request & { connectorUser?: { id: number; name: string } };
@@ -61,6 +62,19 @@ connectorRouter.post("/plan/:id/result", async (req: ConnectorRequest, res) => {
   return res.json({ success: true });
 });
 
+// A connector left watching in a logged-in Mercadona tab picks up the app's «Rellena la cesta automática».
+connectorRouter.post("/requests/claim", async (req: ConnectorRequest, res) => {
+  res.json({ request: await claimCartRequest(req.connectorUser!.id) });
+});
+
+connectorRouter.post("/requests/:id/finish", async (req: ConnectorRequest, res) => {
+  const requestId = Number(req.params.id);
+  const outcome = parseCartRequestOutcome(req.body);
+  if (!Number.isSafeInteger(requestId) || requestId <= 0 || !outcome) return res.status(400).json({ error: "Resultado no válido." });
+  if (!await finishCartRequest(req.connectorUser!.id, requestId, outcome)) return res.status(404).json({ error: "Petición no encontrada." });
+  return res.json({ success: true });
+});
+
 connectorRouter.delete("/history", async (req: ConnectorRequest, res) => {
   await deleteHistory(req.connectorUser!.id);
   res.json({ success: true });
@@ -74,6 +88,25 @@ connectorRouter.post("/disconnect", async (req: ConnectorRequest, res) => {
 connectorRouter.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
   req.log?.error({ errorType: error instanceof Error ? error.name : "unknown" }, "Mercadona connector operation failed");
   res.status(500).json({ error: "No se pudo completar la operación con Mercadona. Inténtalo de nuevo." });
+});
+
+/**
+ * «Rellena la cesta automática» from the shopping list: only queues a request
+ * and reports its progress (no purchase details), so the app's usual user
+ * header is enough.
+ */
+export const mercadonaCartRequestRouter: IRouter = Router();
+
+mercadonaCartRequestRouter.post("/mercadona/cart-requests", async (req: AuthenticatedRequest, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const userId = req.user!.id;
+  res.json({ request: await requestCartFill(userId), watcherOnline: await watcherOnline(userId) });
+});
+
+mercadonaCartRequestRouter.get("/mercadona/cart-requests/latest", async (req: AuthenticatedRequest, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const userId = req.user!.id;
+  res.json({ request: await latestCartRequest(userId), watcherOnline: await watcherOnline(userId) });
 });
 
 /** Creating a connector grants durable access to purchase history, so the account password is required. */

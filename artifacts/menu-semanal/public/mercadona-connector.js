@@ -1,12 +1,14 @@
 /*
  * Mi Cocina → Mercadona connector.
  *
- * Loaded by the "Mi Cocina → Mercadona" bookmark while tienda.mercadona.es is
- * open with the user's own session. It runs in her browser, so no Mercadona
- * credentials ever reach Mi Cocina:
+ * Runs inside tienda.mercadona.es with the user's own session, so no Mercadona
+ * credentials ever reach Mi Cocina (Mercadona blocks requests from servers):
  *   1. reads the delivered orders Mi Cocina has not seen yet (slowly, to respect Mercadona),
- *   2. asks Mi Cocina for the cart plan computed from the weekly menu and that history,
+ *   2. asks Mi Cocina for the cart plan computed from the weekly menu,
  *   3. adds every product to the Mercadona cart (never duplicating what is already there).
+ * Loaded by the «Mi Cocina → Mercadona» bookmark (runs once) or left watching in
+ * a logged-in Mercadona tab (data-mode="watch"), where it fills the cart each
+ * time «Rellena la cesta automática» is pressed in the app's shopping list.
  * It never confirms orders or pays: the user reviews the cart and decides.
  */
 (() => {
@@ -416,28 +418,24 @@
     return { added, kept, missing, total: updated.summary?.total || null };
   }
 
+  /** Problems the user can fix herself: shown as they are, without a technical prefix. */
+  class NoticeError extends Error {}
+
   async function run(options = {}) {
-    if (window.__micocinaConnectorBusy) return;
+    if (window.__micocinaConnectorBusy) throw new NoticeError("Ya se está llenando el carro.");
     window.__micocinaConnectorBusy = true;
     const ui = createPanel();
     try {
       if (location.hostname !== "tienda.mercadona.es") {
-        ui.error("Abre tienda.mercadona.es, inicia sesión y vuelve a pulsar el marcador «Mi Cocina → Mercadona».");
-        return;
+        throw new NoticeError("Abre tienda.mercadona.es, inicia sesión y vuelve a pulsar el marcador «Mi Cocina → Mercadona».");
       }
       const user = mercadonaSession();
-      if (!user) {
-        ui.error("Inicia sesión en Mercadona y vuelve a pulsar el marcador.");
-        return;
-      }
+      if (!user) throw new NoticeError("Inicia sesión en Mercadona y vuelve a intentarlo.");
       let plan = options.plan;
       if (!plan) {
-        if (!TOKEN) {
-          ui.error("Falta el acceso de Mi Cocina. Crea de nuevo el marcador desde la página Mercadona de Mi Cocina.");
-          return;
-        }
+        if (!TOKEN) throw new NoticeError("Falta el acceso de Mi Cocina. Vuelve a conectar Mercadona desde la página Mercadona de Mi Cocina.");
         await syncHistory(user, ui);
-        ui.step("Calculando la cesta según tu menú y tus pedidos anteriores…");
+        ui.step("Calculando la cesta con tu menú semanal…");
         plan = await micocina("/plan", { method: "POST", body: JSON.stringify({}) });
         ui.progress(`Cesta calculada para ${plan.menuLabel || "tu menú"}: ${plan.items.length} productos.`);
       } else if (!warehouse) {
@@ -460,14 +458,64 @@
       return outcome;
     } catch (error) {
       ui.error(error instanceof BlockedError
-        ? "Mercadona ha pedido ir más despacio. Espera unos minutos y vuelve a pulsar el marcador."
-        : `No se pudo completar: ${error.message}`);
+        ? "Mercadona ha pedido ir más despacio. Espera unos minutos y vuelve a intentarlo."
+        : error instanceof NoticeError ? error.message : `No se pudo completar: ${error.message}`);
       throw error;
     } finally {
       window.__micocinaConnectorBusy = false;
     }
   }
 
-  window.__micocinaConnector = { run, version: 1 };
-  if (config.autorun !== "false") run().catch(() => {});
+  // ── Watching: fills the cart when «Rellena la cesta automática» is pressed in the app ──
+
+  const WATCH_INTERVAL_MS = 15000;
+
+  function requestSummary(outcome) {
+    const inCart = [...outcome.added.map(item => item.quantity), ...outcome.kept.map(item => item.inCart)];
+    const notes = [
+      ...outcome.added.filter(item => /alternativa/.test(item.reason || "")).map(item => item.reason),
+      ...outcome.missing.map(item => `${item.ingredients.join(", ")}: ${item.reason}`),
+    ];
+    return {
+      status: "done",
+      message: notes.join(" · ").slice(0, 490) || null,
+      summary: { products: inCart.length, units: inCart.reduce((total, quantity) => total + Number(quantity || 0), 0), total: outcome.total },
+    };
+  }
+
+  async function fulfil(request) {
+    let report;
+    try {
+      report = requestSummary(await run());
+    } catch (error) {
+      report = {
+        status: "error",
+        message: error instanceof BlockedError
+          ? "Mercadona ha pedido ir más despacio. Espera unos minutos y vuelve a pulsar el botón."
+          : error.message || "No se pudo llenar el carro.",
+      };
+    }
+    await micocina(`/requests/${request.id}/finish`, { method: "POST", body: JSON.stringify(report) }).catch(() => {});
+  }
+
+  function watch() {
+    if (window.__micocinaWatching) return;
+    window.__micocinaWatching = true;
+    const tick = async () => {
+      try {
+        if (!window.__micocinaConnectorBusy) {
+          const { request } = await micocina("/requests/claim", { method: "POST", body: "{}" });
+          if (request) await fulfil(request);
+        }
+      } catch {
+        // Network blips or an expired session: try again on the next tick.
+      }
+      setTimeout(tick, WATCH_INTERVAL_MS);
+    };
+    tick();
+  }
+
+  window.__micocinaConnector = { run, watch, version: 2 };
+  if (config.mode === "watch") watch();
+  else if (config.autorun !== "false") run().catch(() => {});
 })();

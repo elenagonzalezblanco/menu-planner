@@ -28,6 +28,8 @@
   const ORDER_DELAY_MS = [2500, 3500];
 
   class BlockedError extends Error {}
+  /** Problems the user can fix herself: shown as they are, without a technical prefix. */
+  class NoticeError extends Error {}
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const pause = ([min, max]) => sleep(min + Math.random() * (max - min));
@@ -44,9 +46,19 @@
   let warehouse = "";
   const query = () => `lang=es${warehouse ? `&wh=${encodeURIComponent(warehouse)}` : ""}`;
 
+  /** Mercadona briefly removes MO-user while it refreshes its token. */
+  async function currentSession() {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const user = mercadonaSession();
+      if (user) return user;
+      await sleep(1000);
+    }
+    return null;
+  }
+
   async function mercadona(path, options = {}) {
-    const user = mercadonaSession();
-    if (!user) throw new Error("La sesión de Mercadona ha caducado. Vuelve a iniciar sesión.");
+    const user = await currentSession();
+    if (!user) throw new NoticeError("La sesión de Mercadona ha caducado: vuelve a iniciar sesión en Mercadona.");
     const response = await fetch(`/api${path}`, {
       ...options,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.token}` },
@@ -240,9 +252,10 @@
   }
 
   const topCategory = text => (text || "").split(" > ")[0].trim().toLocaleLowerCase("es");
+  const PREPARED = /rebozad|empanad|enharinad|frit[oa]s?\b|precocinad|palitos|figuritas|croquet|nuggets|varitas|a la romana|al huevo|al ajillo|en salsa/i;
 
   /** First relevant, available hit; among the top results, one she has bought before wins. */
-  async function searchProduct(text, purchased, { exclude = new Set(), category = "" } = {}) {
+  async function searchProduct(text, purchased, { exclude = new Set(), category = "", avoidPrepared = false } = {}) {
     const queries = Array.isArray(text) ? [...new Set(text.filter(Boolean))] : searchAttempts(text);
     for (const attempt of queries) {
       const response = await fetch(SEARCH_URL, {
@@ -255,7 +268,8 @@
         const available = (data.hits || []).filter(candidate =>
           candidate.published !== false && candidate.status !== "unavailable" && !exclude.has(String(candidate.id)) &&
           (!candidate.unavailable_from || Date.parse(candidate.unavailable_from) > Date.now()) &&
-          (!category || topCategory(candidate.categories?.[0]?.name) === topCategory(category)));
+          (!category || topCategory(candidate.categories?.[0]?.name) === topCategory(category)) &&
+          !(avoidPrepared && PREPARED.test(candidate.display_name || "")));
         const hit = available.slice(0, 5).find(candidate => purchased.has(String(candidate.id))) || available[0];
         if (hit) {
           return {
@@ -367,7 +381,15 @@
       const hit = await searchProduct(item.searchQuery, purchased);
       if (hit) Object.assign(item, hit, { reason: `${item.reason} Encontrado: ${hit.productName}.` });
     }
-    const ready = items.filter(item => item.productId && item.quantity > 0);
+    const ready = [];
+    for (const item of items.filter(candidate => candidate.productId && candidate.quantity > 0)) {
+      const same = ready.find(candidate => candidate.productId === item.productId);
+      if (!same) ready.push(item);
+      else {
+        same.quantity = Math.max(same.quantity, item.quantity);
+        same.ingredients = [...new Set([...same.ingredients, ...item.ingredients])];
+      }
+    }
     const missing = items.filter(item => !item.productId);
     ui.step(`Añadiendo ${ready.length} productos al carro…`);
     // Snapshot before any write: retries and the one-by-one fallback must not turn new products into "already there".
@@ -386,8 +408,13 @@
         // Same product line first, then the ingredient within the same section. Fresh fish or meat may
         // become its frozen version; fruit and vegetables stay fresh.
         const crossSection = /pescado|marisco|carne/i.test(item.category || "");
-        const hit = await searchProduct([item.productName], purchased, { exclude: unavailableIds, category: crossSection ? "" : item.category || "" }) ||
-          await searchProduct(item.searchQuery || item.ingredients[0], purchased, { exclude: unavailableIds, category: item.category || "" });
+        const options = {
+          exclude: unavailableIds,
+          category: crossSection ? "" : item.category || "",
+          avoidPrepared: !PREPARED.test(`${item.productName} ${item.ingredients.join(" ")}`),
+        };
+        const hit = await searchProduct([item.productName], purchased, options) ||
+          await searchProduct(item.searchQuery || item.ingredients[0], purchased, options);
         if (hit) {
           const replaced = item.productName;
           Object.assign(item, hit, { reason: `«${replaced}» no está disponible ahora; alternativa: ${hit.productName}.` });
@@ -418,9 +445,6 @@
     return { added, kept, missing, total: updated.summary?.total || null };
   }
 
-  /** Problems the user can fix herself: shown as they are, without a technical prefix. */
-  class NoticeError extends Error {}
-
   async function run(options = {}) {
     if (window.__micocinaConnectorBusy) throw new NoticeError("Ya se está llenando el carro.");
     window.__micocinaConnectorBusy = true;
@@ -429,7 +453,7 @@
       if (location.hostname !== "tienda.mercadona.es") {
         throw new NoticeError("Abre tienda.mercadona.es, inicia sesión y vuelve a pulsar el marcador «Mi Cocina → Mercadona».");
       }
-      const user = mercadonaSession();
+      const user = await currentSession();
       if (!user) throw new NoticeError("Inicia sesión en Mercadona y vuelve a intentarlo.");
       let plan = options.plan;
       if (!plan) {

@@ -5,7 +5,7 @@ import { useCartRequest } from "@/hooks/use-mercadona-cart";
 
 type CartRequest = ReturnType<typeof useCartRequest>;
 
-/** «Rellena la cesta automática»: queues the fill; Scout's Mercadona tab does it. */
+/** «Rellena la cesta automática»: queues the fill; the helper on the owner's Mac does it. */
 export function AutoCartButton({ cart }: { cart: CartRequest }) {
   const status = cart.data?.request?.status;
   const busy = cart.start.isPending || status === "pending" || status === "running";
@@ -46,8 +46,8 @@ export function AutoCartStatus({ cart }: { cart: CartRequest }) {
           </p>
           {request.status === "pending" && !cart.data?.watcherOnline && (
             <p className="text-muted-foreground mt-1">
-              Ahora mismo Scout no está conectado en tu ordenador. Se rellenará en cuanto se conecte (durante los próximos 15 minutos).
-              También puedes hacerlo con el marcador de la página <Link href="/mercadona" className="underline">Mercadona</Link>.
+              El ayudante de tu Mac no está conectado (el Mac está apagado o dormido). Se rellenará en cuanto se encienda,
+              durante los próximos 15 minutos. También puedes hacerlo con el marcador de la página <Link href="/mercadona" className="underline">Mercadona</Link>.
             </p>
           )}
         </div>

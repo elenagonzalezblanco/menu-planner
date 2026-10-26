@@ -106,7 +106,7 @@ const toCartRequest = (row: CartRequestRow): CartRequest => ({
 async function expireCartRequests(userId: number): Promise<void> {
   await pool.query(`
     UPDATE mercadona_cart_requests SET status = 'expired', finished_at = now(),
-      message = 'Nadie la recogió a tiempo: el ordenador con Scout estaba apagado o sin conectar.'
+      message = 'Nadie la recogió a tiempo: el Mac que llena la cesta estaba apagado o dormido.'
     WHERE user_id = $1 AND status = 'pending' AND created_at < now() - ($2 || ' minutes')::interval
   `, [userId, String(CART_REQUEST_TTL_MINUTES)]);
   await pool.query(`

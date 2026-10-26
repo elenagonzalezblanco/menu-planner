@@ -39,10 +39,11 @@ bookmarks bar. With your session open on tienda.mercadona.es, click it:
    cart and use **Añadir al pedido en curso** or **Tramitar nuevo pedido**.
 
 **Rellena la cesta automática** (Lista de Compra) does the same without the
-bookmark: the app queues a request and a connector left watching in a
-logged-in tienda.mercadona.es tab (`data-mode="watch"`, kept open by the owner's
-Scout assistant) claims it within ~15 s, fills the cart and reports the result
-back to the shopping list. Mercadona rejects these requests when they come from
+bookmark: the app queues a request and a background helper on the owner's Mac
+(`scripts/mercadona-mac-helper`, a launchd agent with its own logged-in Edge
+profile) claims it within ~15 s, fills the cart and reports the result back to
+the shopping list. A logged-in tienda.mercadona.es tab running the connector
+with `data-mode="watch"` works the same way. Mercadona rejects these requests when they come from
 a server ("uso indebido"), which is why the work always happens in a browser
 with your own session. Requests nobody picks up expire after 15 minutes.
 

@@ -1,0 +1,9 @@
+{
+  "name": "micocina-mercadona-helper",
+  "private": true,
+  "type": "module",
+  "description": "Fills the Mercadona cart when «Rellena la cesta automática» is pressed in Mi Cocina",
+  "dependencies": {
+    "playwright-core": "1.64.1"
+  }
+}

@@ -95,7 +95,8 @@ export default function MenuPage() {
   const generateShopping = useGenerateShoppingList();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const generateMenu = useGenerateMenu();
+  // The reasoning model can take over a minute: well above the client's default 20 s timeout.
+  const generateMenu = useGenerateMenu({ request: { timeout: 230_000 } });
   const { currentUser } = useUser();
   const { send: sendEmail, busy: emailBusy } = useEmail();
   const [isEditing, setIsEditing] = useState(false);

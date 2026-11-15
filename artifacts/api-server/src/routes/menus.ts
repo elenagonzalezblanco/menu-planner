@@ -1,7 +1,10 @@
 import { Router, type IRouter } from "express";
 import { db, recipesTable, weeklyMenusTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { getAzureOpenAIClient, MODEL } from "../lib/azure-openai";
+import { generationOptions, getAzureOpenAIClient, MODEL } from "../lib/azure-openai";
+
+/** App Service cuts requests at 230 s: answer (or fall back) before that. */
+const AI_REQUEST_TIMEOUT_MS = 200_000;
 import { GenerateMenuBody, GetMenuParams } from "@workspace/api-zod";
 import type { AuthenticatedRequest } from "../middlewares/auth";
 
@@ -257,8 +260,9 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown.`;
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
+          ...generationOptions({ temperature: 1, maxOutputTokens: 8192 }),
           response_format: { type: "json_object" },
-        });
+        }, { timeout: AI_REQUEST_TIMEOUT_MS });
         const parsed = JSON.parse(completion.choices[0].message.content ?? "{}");
         menuDays = parsed.days ?? [];
       } catch (aiErr) {
@@ -458,10 +462,9 @@ Cuando hay cambios:
     const completion = await client.chat.completions.create({
       model: MODEL,
       messages,
-      temperature: 0.7,
-      max_completion_tokens: 4096,
+      ...generationOptions({ temperature: 0.7, maxOutputTokens: 8192 }),
       response_format: { type: "json_object" },
-    });
+    }, { timeout: AI_REQUEST_TIMEOUT_MS });
 
     const raw = JSON.parse(completion.choices?.[0]?.message?.content ?? "{}");
     const reply: string = raw.reply ?? "Hecho.";

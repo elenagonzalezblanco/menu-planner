@@ -1,0 +1,157 @@
+name: Deploy API — App Service
+
+# Builds the API image in ACR, optionally deploys an Azure OpenAI model and
+# points the app at it, then releases to App Service and checks health.
+# Rolls back image and model settings if the app does not come back healthy.
+# Launch from the Actions tab or: gh workflow run deploy-api.yml -f openai_model=gpt-6.1-sol
+on:
+  workflow_dispatch:
+    inputs:
+      openai_model:
+        description: "Azure OpenAI model to deploy and use, e.g. gpt-6.1-sol (empty keeps the current one)"
+        default: ""
+      openai_model_version:
+        description: "Model version (empty picks the latest available)"
+        default: ""
+      openai_capacity:
+        description: "Deployment capacity, in thousands of tokens per minute"
+        default: "100"
+      reasoning_effort:
+        description: "Reasoning effort for reasoning models (empty keeps the current one)"
+        default: ""
+      skip_build:
+        description: "Only change the model settings, without building a new image"
+        type: boolean
+        default: false
+      inspect_only:
+        description: "Only show the current deployment, available models, quota and permissions"
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: keep-alive # reuse the existing OIDC federated credential
+    timeout-minutes: 45
+    env:
+      RG: elenagbgpersonal
+      APP: micocina
+      ACR: menuplannercr
+      AOAI: menuplanner3-resource
+      APP_URL: https://micocina.azurewebsites.net
+      CLIENT_ID: 2f65786d-ad3f-480d-a0eb-a41d45de8135
+      MODEL: ${{ inputs.openai_model }}
+      MODEL_VERSION: ${{ inputs.openai_model_version }}
+      CAPACITY: ${{ inputs.openai_capacity }}
+      EFFORT: ${{ inputs.reasoning_effort }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: 2f65786d-ad3f-480d-a0eb-a41d45de8135
+          tenant-id: 16b3c013-d300-468d-ac64-7eda0820b6d3
+          subscription-id: 5fd714fb-9dfc-4176-ac01-ef4087e8c47f
+
+      - name: Inspect
+        run: |
+          set +e
+          echo "## Permissions of the deploy identity"
+          az role assignment list --assignee "$CLIENT_ID" --all --query "[].{role:roleDefinitionName,scope:scope}" -o table
+          echo "## App"
+          az webapp show -g "$RG" -n "$APP" --query "{state:state,image:siteConfig.linuxFxVersion}" -o table
+          az webapp config appsettings list -g "$RG" -n "$APP" --query "[?starts_with(name,'AZURE_OPENAI')].{name:name,value:value}" -o table
+          echo "## Azure OpenAI resource"
+          az cognitiveservices account show -g "$RG" -n "$AOAI" --query "{location:location,kind:kind,sku:sku.name}" -o table
+          az cognitiveservices account deployment list -g "$RG" -n "$AOAI" \
+            --query "[].{name:name,model:properties.model.name,version:properties.model.version,sku:sku.name,capacity:sku.capacity,state:properties.provisioningState}" -o table
+          echo "## Available GPT-6 models"
+          az cognitiveservices account list-models -g "$RG" -n "$AOAI" \
+            --query "[?starts_with(name,'gpt-6')].{name:name,version:version,skus:join(',',skus[].name),retire:deprecation.inference}" -o table
+          LOCATION=$(az cognitiveservices account show -g "$RG" -n "$AOAI" --query location -o tsv)
+          echo "## Quota in $LOCATION"
+          az cognitiveservices usage list -l "$LOCATION" --query "[?contains(name.value,'gpt-6')].{name:name.value,used:currentValue,limit:limit}" -o table
+          exit 0
+
+      - name: Remember current release
+        if: ${{ !inputs.inspect_only }}
+        run: |
+          echo "PREV_IMAGE=$(az webapp show -g "$RG" -n "$APP" --query siteConfig.linuxFxVersion -o tsv)" >> "$GITHUB_ENV"
+          echo "PREV_MODEL=$(az webapp config appsettings list -g "$RG" -n "$APP" --query "[?name=='AZURE_OPENAI_MODEL'].value | [0]" -o tsv)" >> "$GITHUB_ENV"
+          echo "PREV_EFFORT=$(az webapp config appsettings list -g "$RG" -n "$APP" --query "[?name=='AZURE_OPENAI_REASONING_EFFORT'].value | [0]" -o tsv)" >> "$GITHUB_ENV"
+
+      - name: Deploy the Azure OpenAI model
+        if: ${{ !inputs.inspect_only && inputs.openai_model != '' }}
+        run: |
+          if az cognitiveservices account deployment show -g "$RG" -n "$AOAI" --deployment-name "$MODEL" -o none 2>/dev/null; then
+            echo "Deployment $MODEL already exists."
+            exit 0
+          fi
+          VERSION="$MODEL_VERSION"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(az cognitiveservices account list-models -g "$RG" -n "$AOAI" \
+              --query "sort_by([?name=='$MODEL'], &version)[-1].version" -o tsv)
+          fi
+          [ -n "$VERSION" ] || { echo "::error::$MODEL is not available for $AOAI"; exit 1; }
+          echo "Creating $MODEL $VERSION (GlobalStandard, ${CAPACITY}K TPM)…"
+          az cognitiveservices account deployment create -g "$RG" -n "$AOAI" \
+            --deployment-name "$MODEL" --model-name "$MODEL" --model-version "$VERSION" --model-format OpenAI \
+            --sku-name GlobalStandard --sku-capacity "$CAPACITY" -o table
+
+      - name: Build image
+        if: ${{ !inputs.inspect_only && !inputs.skip_build }}
+        run: |
+          TAG="gh-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          az acr build --registry "$ACR" --image "menu-planner:$TAG" --image menu-planner:latest \
+            --platform linux/amd64 --file Dockerfile . -o none
+          echo "Built menu-planner:$TAG"
+
+      - name: Release
+        if: ${{ !inputs.inspect_only }}
+        run: |
+          SETTINGS=()
+          [ -n "$MODEL" ] && SETTINGS+=("AZURE_OPENAI_MODEL=$MODEL")
+          [ -n "$EFFORT" ] && SETTINGS+=("AZURE_OPENAI_REASONING_EFFORT=$EFFORT")
+          if [ ${#SETTINGS[@]} -gt 0 ]; then
+            az webapp config appsettings set -g "$RG" -n "$APP" --settings "${SETTINGS[@]}" -o none
+          fi
+          if [ -n "$TAG" ]; then
+            az webapp config set -g "$RG" -n "$APP" --linux-fx-version "DOCKER|$ACR.azurecr.io/menu-planner:$TAG" -o none
+          fi
+          az webapp restart -g "$RG" -n "$APP"
+
+      - name: Health check (rolls back on failure)
+        if: ${{ !inputs.inspect_only }}
+        run: |
+          sleep 30
+          for attempt in $(seq 1 30); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' -m 15 "$APP_URL/api/healthz")" = "200" ]; then
+              echo "Healthy after $attempt checks: $(az webapp show -g "$RG" -n "$APP" --query siteConfig.linuxFxVersion -o tsv)"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::App unhealthy after release: rolling back to $PREV_IMAGE (model ${PREV_MODEL:-default})"
+          az webapp config set -g "$RG" -n "$APP" --linux-fx-version "$PREV_IMAGE" -o none
+          if [ -n "$PREV_MODEL" ]; then
+            az webapp config appsettings set -g "$RG" -n "$APP" --settings "AZURE_OPENAI_MODEL=$PREV_MODEL" -o none
+          else
+            az webapp config appsettings delete -g "$RG" -n "$APP" --setting-names AZURE_OPENAI_MODEL -o none
+          fi
+          if [ -n "$PREV_EFFORT" ]; then
+            az webapp config appsettings set -g "$RG" -n "$APP" --settings "AZURE_OPENAI_REASONING_EFFORT=$PREV_EFFORT" -o none
+          else
+            az webapp config appsettings delete -g "$RG" -n "$APP" --setting-names AZURE_OPENAI_REASONING_EFFORT -o none
+          fi
+          az webapp restart -g "$RG" -n "$APP"
+          exit 1

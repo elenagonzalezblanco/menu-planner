@@ -5,7 +5,7 @@ A full-stack web application for weekly meal planning powered by a conversationa
 ## Features
 
 - **Recipe Management** — Browse and manage personal recipes organized by type (first course, second course, other). New users are seeded with 74 default recipes.
-- **AI Menu Generation** — Generate weekly menus using Azure OpenAI GPT-4o. The AI respects historical preferences (5 weeks of learning), parses natural-language constraints (e.g. "no fish at lunch", "only seconds"), and enforces them programmatically as a safeguard.
+- **AI Menu Generation** — Generate weekly menus using Azure OpenAI GPT-6.1 Sol. The AI respects historical preferences (5 weeks of learning), parses natural-language constraints (e.g. "no fish at lunch", "only seconds"), and enforces them programmatically as a safeguard.
 - **Conversational Menu Editing** — Refine and modify menus incrementally through a chat interface with full context awareness. The AI assistant only changes what you ask for.
 - **Drag & Drop** — Visually rearrange meals across days and slots.
 - **Shopping List** — Auto-consolidated ingredient list generated from the active menu, grouped by normalized ingredient with recipe attribution.
@@ -66,7 +66,7 @@ shopping lists**, not an unrestricted AI conversation or voice notes:
 - `lista: leche; aceite; arroz`
 - A photo of a handwritten list: the image is downloaded from Meta (only for
   linked phones), read by the Azure OpenAI vision model (`AZURE_OPENAI_MODEL`,
-  e.g. gpt-4o) and every product it reads is added, keeping quantities as
+  e.g. gpt-6.1-sol) and every product it reads is added, keeping quantities as
   written; crossed-out lines are ignored. A caption such as `añade sal` is
   added too. Photos are processed in memory and never stored; failed downloads
   or readings are retried twice before the user gets an apology.
@@ -178,7 +178,7 @@ Run its tests with `node --test scripts/check-public-api.test.mjs`.
 | **Frontend** | React 19, Vite 7, Tailwind CSS 4, shadcn/ui (Radix UI), Framer Motion, React Query, Wouter |
 | **Backend** | Express 5, Node.js, Pino (logging), Helmet |
 | **Database** | PostgreSQL 16, Drizzle ORM |
-| **AI** | Azure OpenAI GPT-4o via `@azure/identity` (Entra ID / Managed Identity) |
+| **AI** | Azure OpenAI GPT-6.1 Sol (v1 API) via `@azure/identity` (Entra ID / Managed Identity) |
 | **Validation** | Zod, Drizzle-Zod |
 | **API** | OpenAPI 3.1, Orval (code generation) |
 | **Automation** | Playwright + puppeteer-extra-plugin-stealth (Mercadona) |
@@ -229,7 +229,7 @@ graph TB
     end
 
     subgraph External["External Services"]
-        OpenAISvc["Azure OpenAI<br/>GPT-4o"]
+        OpenAISvc["Azure OpenAI<br/>GPT-6.1 Sol"]
         Mercadona["tienda.mercadona.es"]
         AzureEmail["Azure Communication Services"]
     end
@@ -424,7 +424,9 @@ pnpm --filter @workspace/db run push
 | `AZURE_CLIENT_ID` | Azure AD client ID |
 | `AZURE_CLIENT_SECRET` | Azure AD client secret |
 | `AZURE_OPENAI_BASE_URL` | Azure OpenAI endpoint |
-| `AZURE_OPENAI_MODEL` | Azure OpenAI deployment name |
+| `AZURE_OPENAI_MODEL` | Azure OpenAI deployment name (default `gpt-6.1-sol`) |
+| `AZURE_OPENAI_REASONING_EFFORT` | Effort for reasoning models: `low`, `medium` (default), `high`, `xhigh` |
+| `AZURE_OPENAI_REASONING` | `true`/`false` to override reasoning-model detection by deployment name |
 
 ## Data Flow
 
@@ -464,6 +466,18 @@ The project uses a multi-stage Docker build:
 4. **runtime** — Node 20-slim, serves on port 3000
 
 Deployed on Render.com (Docker + PostgreSQL) and Azure (App Service / Container Apps).
+
+The Azure App Service release is the **Deploy API — App Service** workflow
+(`.github/workflows/deploy-api.yml`, manual run). It builds the image in ACR,
+optionally deploys an Azure OpenAI model and points `AZURE_OPENAI_MODEL` at it,
+restarts the app and rolls back image and model settings if `/api/healthz` does
+not recover. `inspect_only` shows the current image, model deployments,
+available GPT-6 models, quota and the permissions of the deploy identity.
+
+```sh
+gh workflow run deploy-api.yml -f openai_model=gpt-6.1-sol   # build, deploy the model and release
+gh workflow run deploy-api.yml -f inspect_only=true          # read-only overview
+```
 
 ## Reliable email delivery
 

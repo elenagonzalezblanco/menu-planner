@@ -1,4 +1,4 @@
-import { getAzureOpenAIClient, MODEL } from "./azure-openai";
+import { generationOptions, getAzureOpenAIClient, MODEL } from "./azure-openai";
 import { normalizeIngredient } from "./whatsapp";
 
 /** Formats the vision model reads; WhatsApp photos are JPEG or PNG. */
@@ -58,8 +58,7 @@ export async function readShoppingListImage(image: { data: Buffer; mimeType: str
       },
     ],
     response_format: { type: "json_object" },
-    temperature: 0,
-    max_completion_tokens: 1200,
-  }, { timeout: 60_000 });
+    ...generationOptions({ temperature: 0, maxOutputTokens: 1200 }),
+  }, { timeout: 120_000 });
   return parseImageItems(completion.choices[0]?.message?.content);
 }
